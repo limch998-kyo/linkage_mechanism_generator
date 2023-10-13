@@ -31,7 +31,7 @@ predicted_connections = (edge_out > edge_threshold).float()
 # print(predicted_connections)
 
 # print(predicted_connections)
-print(predicted_connections)
+# print(predicted_connections)
 
 print("Node Predictions:", node_predictions.shape)
 print("Edge Predictions:", predicted_connections.shape)
@@ -51,36 +51,73 @@ print("Full Edge Index:", full_edge_index.shape)
 
 
 import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.pyplot as plt
+import imageio
 
-def visualize_graph(coordinates, node_labels, edge_probs, edge_index, threshold=0.5):
-    fig, ax = plt.subplots(figsize=(10, 10))
-    
+def rotate_point_around_origin(px, py, angle):
+    """Rotate a point around the origin (0, 0)."""
+    qx = px * np.cos(angle) - py * np.sin(angle)
+    qy = px * np.sin(angle) + py * np.cos(angle)
+    return qx, qy
+
+def plot_graph(coordinates, node_labels, edge_probs, edge_index, threshold, ax, center_coord, frame_size=5):
+    """Plot the graph on a given axes."""
+    # Set the axis limits based on the center_coord and frame_size
+    ax.set_xlim(center_coord[0] - frame_size, center_coord[0] + frame_size)
+    ax.set_ylim(center_coord[1] - frame_size, center_coord[1] + frame_size)
+
     # Plot edges
     for i in range(edge_index.shape[0]):
         start, end = edge_index[i]
         if edge_probs[i] > threshold:
             ax.plot([coordinates[start][0], coordinates[end][0]],
                     [coordinates[start][1], coordinates[end][1]], 
-                    color='gray', alpha=edge_probs[i].item())  # transparency based on probability
+                    color='gray', alpha=edge_probs[i].item())
     
     # Plot nodes
     for i, coord in enumerate(coordinates):
         if i == 0:
             ax.scatter(*coord, color='red', label='Rotating', s=100)
-        elif node_labels[i] == 0:  # Assuming 0 is fixed axis and 1 is moving axis
+        elif node_labels[i] == 0:
             ax.scatter(*coord, color='blue', label='Fixed Axis', s=50)
         else:
             ax.scatter(*coord, color='green', label='Moving Axis', s=50)
 
-    ax.set_title("Graph Visualization")
-    ax.set_xlabel("X-coordinate")
-    ax.set_ylabel("Y-coordinate")
-    ax.legend()
 
-    plt.show()
+def visualize_graph(coordinates, node_labels, edge_probs, edge_index, threshold=0.5):
+    num_frames = 36
+    rotation_per_frame = 2 * np.pi / num_frames
+    frames = []
+
+    for frame in range(num_frames):
+        fig, ax = plt.subplots(figsize=(10, 10))
+        rotation_angle = frame * rotation_per_frame
+
+        # Rotate and move nodes as required
+        for i in range(edge_index.shape[0]):
+            start, end = edge_index[i]
+            if start == 0 and node_labels[end] != 0:  # Attached to rotating axis & not fixed axis
+                x, y = coordinates[end]
+                x_new, y_new = rotate_point_around_origin(x, y, rotation_angle)
+                coordinates[end] = [x_new, y_new]
+
+        # Plot the updated graph
+        center_coord = coordinates[0]
+        plot_graph(coordinates, node_labels, edge_probs, edge_index, threshold, ax, center_coord)
+
+
+        # Convert the frame to an image
+        fig.canvas.draw()
+        img_arr = np.array(fig.canvas.renderer.buffer_rgba())
+        frames.append(img_arr)
+        plt.close(fig)
+
+    # Create the GIF
+    imageio.mimsave('rotating_simulation.gif', frames, fps=10)
 
 node_out, edge_out, full_edge_index = model(data)
-
 node_labels = torch.argmax(F.softmax(node_out, dim=1), dim=1).numpy()
-
+print(node_labels)
 visualize_graph(data.x.numpy(), node_labels, edge_out.detach().numpy(), full_edge_index.t().numpy())
+

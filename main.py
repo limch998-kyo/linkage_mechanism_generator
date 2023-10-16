@@ -1,33 +1,15 @@
 # from points_generator import generate_coordinates
 import torch
-from torch_geometric.data import Data
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
+from util import share_adjoining_point, visualize_linkage, calculate_angle, euclidean_distance
 import numpy as np
 import pylinkage as pl
 
 from GNN_network import GNN
 
-import math
-
-def calculate_angle(point1, point2):
-    """Calculate angle between two points with respect to the positive x-axis."""
-    dx = point2[0] - point1[0]
-    dy = point2[1] - point1[1]
-    return math.atan2(dy, dx)
-
-def euclidean_distance(point1, point2):
-    """Calculate Euclidean distance between two points."""
-    return np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
-
-
-from util import share_adjoining_point, visualize_linkage
-
-
 nodes  = 4
 
 attempt = 0
-final_attempt = 0
+final_attempt = 1
 
 input_dim = nodes * 2  # 4 2D coordinates
 hidden_dim = 128
@@ -61,7 +43,7 @@ while True:
             sum_adj_matrix = torch.sum(adjacency_matrix)
             if not share_adjoining_point(adjacency_matrix, 0, 1):
 
-                # visualize_linkage(coordinates, adjacency_matrix)
+
                 # Convert the 2D array into a list of tuple points
                 points = [(coord[0], coord[1]) for coord in coordinates]
                 # Find the index of a point that's connected to points[0] but not the second coordinate
@@ -109,6 +91,7 @@ while True:
                 my_linkage = pl.Linkage(joints=(crank, pin), order=(crank, pin))
                 # Visualization
                 pl.show_linkage(my_linkage)
+                visualize_linkage(coordinates, adjacency_matrix)
                 print("attempt: ", attempt)
                 print("final stage attempt: ", final_attempt)
                 break

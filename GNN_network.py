@@ -7,11 +7,12 @@ class CoordinateNetwork(nn.Module):
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, 2 * output_nodes)
+        self.output_nodes = output_nodes
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        return self.fc3(x).view(-1, output_nodes, 2)
+        return self.fc3(x).view(-1, self.output_nodes, 2)
 
 class AdjacencyNetwork(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_nodes):
@@ -20,6 +21,7 @@ class AdjacencyNetwork(nn.Module):
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         # Exclude diagonal for symmetric matrix since diagonal will be zeros
         self.fc3 = nn.Linear(hidden_dim, output_nodes * (output_nodes - 1) // 2)
+        self.output_nodes = output_nodes
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
@@ -27,8 +29,8 @@ class AdjacencyNetwork(nn.Module):
         adj_vector = torch.sigmoid(self.fc3(x))
 
         # Create the adjacency matrix
-        indices = torch.triu_indices(output_nodes, output_nodes, offset=1, device=x.device)
-        adjacency_matrix = torch.zeros(x.shape[0], output_nodes, output_nodes, device=x.device)
+        indices = torch.triu_indices(self.output_nodes, self.output_nodes, offset=1, device=x.device)
+        adjacency_matrix = torch.zeros(x.shape[0], self.output_nodes, self.output_nodes, device=x.device)
         adjacency_matrix[:, indices[0], indices[1]] = adj_vector
         adjacency_matrix[:, indices[1], indices[0]] = adj_vector  # Make it symmetric
         
@@ -40,23 +42,28 @@ class AdjacencyNetwork(nn.Module):
 
 class GNN(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_nodes):
+
+        self.input_dim = input_dim
+        self.hidden_dim = hidden_dim
+        self.output_nodes = output_nodes
+
         super(GNN, self).__init__()
-        self.coordinate_net = CoordinateNetwork(input_dim, hidden_dim, output_nodes)
-        self.adjacency_net = AdjacencyNetwork(input_dim, hidden_dim, output_nodes)
+        self.coordinate_net = CoordinateNetwork(self.input_dim, self.hidden_dim, self.output_nodes)
+        self.adjacency_net = AdjacencyNetwork(self.input_dim, self.hidden_dim, self.output_nodes)
 
     def forward(self, x):
         coordinates = self.coordinate_net(x)
         adjacency_matrix = self.adjacency_net(x)
         return coordinates, adjacency_matrix
 
-# Usage example
-input_dim = 4 * 2  # 4 2D coordinates
-hidden_dim = 128
-output_nodes = 10  # For instance, outputting 10 nodes
+# # Usage example
+# input_dim = 10 * 2  # 4 2D coordinates
+# hidden_dim = 128
+# output_nodes = 10  # For instance, outputting 10 nodes
 
-gnn = GNN(input_dim, hidden_dim, output_nodes)
-inputs = torch.rand(1, input_dim)
-coordinates, adjacency_matrix = gnn(inputs)
+# gnn = GNN(input_dim, hidden_dim, output_nodes)
+# inputs = torch.rand(1, input_dim)
+# coordinates, adjacency_matrix = gnn(inputs)
 
-print(coordinates[0])
-print(adjacency_matrix[0])
+# print(coordinates[0])
+# print(adjacency_matrix[0])

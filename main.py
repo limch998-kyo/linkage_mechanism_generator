@@ -1,5 +1,5 @@
-from points_generator import generate_coordinates
-from adjusted_network import EnhancedGNN
+# from points_generator import generate_coordinates
+from GNN_network import GNN
 import torch
 from torch_geometric.data import Data
 import torch.nn.functional as F
@@ -40,19 +40,19 @@ def visualize_linkage(coordinates, adjacency_matrix):
 
 attempt = 0
 
+input_dim = 4 * 2  # 4 2D coordinates
+hidden_dim = 128
+output_nodes = 4  # For instance, outputting 10 nodes
+
 while True:
     attempt += 1
-    coordinates = generate_coordinates(num_points=4)
-    coordinates_tensor = torch.tensor(coordinates, dtype=torch.float)
-    edge_index = torch.tensor([[i, i+1] for i in range(len(coordinates)-1)], dtype=torch.long).t().contiguous()
-    data = Data(x=coordinates_tensor, edge_index=edge_index)
-    model = EnhancedGNN(num_node_features=2)
-    adjacency_matrix = model(data)
+    gnn = GNN(input_dim, hidden_dim, output_nodes)
+    inputs = torch.rand(1, input_dim)
+    coordinates, adjacency_matrix = gnn(inputs)
 
-    adjacency_matrix = torch.tensor([[0,1,1,0]
-                                     ,[1,0,0,1]
-                                     ,[1,0,0,1]
-                                     ,[0,1,1,0]])
+    coordinates = coordinates.detach().numpy()[0]
+    adjacency_matrix = adjacency_matrix[0]
+
 
     row_sums = torch.sum(adjacency_matrix, dim=1)
     # print(row_sums)

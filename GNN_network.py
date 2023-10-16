@@ -52,7 +52,7 @@ class GNN(nn.Module):
 # Usage example
 input_dim = 4 * 2  # 4 2D coordinates
 hidden_dim = 128
-output_nodes = 4  # For instance, outputting 10 nodes
+output_nodes = 10  # For instance, outputting 10 nodes
 
 gnn = GNN(input_dim, hidden_dim, output_nodes)
 inputs = torch.rand(1, input_dim)

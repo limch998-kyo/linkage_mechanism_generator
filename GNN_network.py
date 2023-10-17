@@ -67,7 +67,7 @@ class CombinedNetwork(nn.Module):
         
         out3_coords = self.fc6_coords(x3)
 
-        return final_binary_input, out2_adjacency, output_coords, out3_adjacency, out3_coords
+        return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0]
     
 if __name__ == '__main__':
     # Test

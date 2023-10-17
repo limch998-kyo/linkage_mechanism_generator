@@ -1,56 +1,21 @@
 # from points_generator import generate_coordinates
 import torch
-from util import share_adjoining_point, visualize_linkage, calculate_angle, euclidean_distance
 import numpy as np
-import pylinkage as pl
-import matplotlib.pyplot as plt
+import imageio
+
+from geometry import rotate_around_center, closest_intersection_point, euclidean_distance
+from visiualizer import visualize_linkage_system
 from GNN_network import CombinedNetwork
-
-def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location):
-    # Create a new figure and axis
-    fig, ax = plt.subplots()
-
-    # Define colors for each stage
-    colors = ['r', 'g', 'b']
-
-    # Stage 1
-    if coor_val[0] == 1:  # Link exists for the first set
-        ax.plot([crank_location[0], all_coords[0][0]], [crank_location[1], all_coords[0][1]], color=colors[0])
-        ax.plot([all_coords[0][0], all_coords[1][0]], [all_coords[0][1], all_coords[1][1]], color=colors[0])
-        ax.plot([all_coords[1][0], status_location[0]], [all_coords[1][1], status_location[1]], color=colors[0])
-    
-    if coor_val[2] == 1:  # Link exists for the second set
-        ax.plot([crank_location[0], all_coords[2][0]], [crank_location[1], all_coords[2][1]], color=colors[0])
-        ax.plot([all_coords[2][0], all_coords[3][0]], [all_coords[2][1], all_coords[3][1]], color=colors[0])
-        ax.plot([all_coords[3][0], status_location[0]], [all_coords[3][1], status_location[1]], color=colors[0])
-
-    # Stage 2
-    for i in range(4, 8):
-        if coor_val[i] == 1:
-            joint_a, joint_b = stage2_adjacency[i-4]
-            ax.plot([all_coords[joint_a][0], all_coords[i][0]], [all_coords[joint_a][1], all_coords[i][1]], color=colors[1])
-            ax.plot([all_coords[joint_b][0], all_coords[i][0]], [all_coords[joint_b][1], all_coords[i][1]], color=colors[1])
-
-    # Stage 3
-    joint_a, joint_b = target_adjacency
-
-    ax.plot([all_coords[joint_a][0], target_coords[0]], [all_coords[joint_a][1], target_coords[1]], color=colors[2])
-    ax.plot([all_coords[joint_b][0], target_coords[0]], [all_coords[joint_b][1], target_coords[1]], color=colors[2])
+from 
 
 
-    # Display the linkage system
-    for idx, (x, y) in enumerate(all_coords):
-        if coor_val[idx] == 1:
-            ax.scatter(x, y, c='black')
-    ax.scatter(crank_location[0], crank_location[1], c='orange', marker='o')  # Crank location
-    ax.scatter(status_location[0], status_location[1], c='orange', marker='o')  # Status location
-    ax.scatter(target_coords[0], target_coords[1], c='blue', marker='o')  # Target location
-    plt.show()
+
+
 
 input = []
 target_location = [[5,5],[8,5],[5,4],[8,4]]
 crank_location = [0,0]
-status_location = [5,0]
+status_location = [1,0]
 
 input.append(crank_location)
 input.append(status_location)
@@ -62,6 +27,8 @@ input_tensor = torch.tensor([input], dtype=torch.float)
 attempt = 0
 while True:
     try:
+        
+
         flag = False
         attempt += 1
         net = CombinedNetwork()
@@ -72,7 +39,7 @@ while True:
         all_coords = all_coords.detach().numpy()
         target_adjacency = target_adjacency.detach().numpy()
         target_coords = target_coords.detach().numpy()
-        coor_val = np.array([1, 1, 0, 0, 1, 1, 0, 0])
+        # coor_val = np.array([1, 1, 0, 0, 1, 1, 0, 0])
 
         if np.all(coor_val[:4] == 0):
             flag = True
@@ -110,7 +77,85 @@ while True:
 
 
 
-        visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
+        # visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
+
+        frame_num = 60
+        angles = np.linspace(0, 4*np.pi, frame_num)  # You can adjust this as needed
+        angles_delta = 2*np.pi/30
+
+        linkage_valid = True
+
+        crank_length = euclidean_distance(crank_location, all_coords[0])
+        crank_length2 = euclidean_distance(crank_location, all_coords[2])
+
+        link_fixed = euclidean_distance(all_coords[1], status_location)
+        link_fixed2 = euclidean_distance(all_coords[3], status_location)
+
+        #Second stage
+
+        links_length = []
+        for i in range(4, 8):
+            link1_length = euclidean_distance(all_coords[i], all_coords[stage2_adjacency[i-4][0]])
+            link2_length = euclidean_distance(all_coords[i], all_coords[stage2_adjacency[i-4][1]])
+            links_length.append([link1_length, link2_length])
+
+        #Third stage
+        link1_length = euclidean_distance(target_coords, all_coords[target_adjacency[0]])
+        link2_length = euclidean_distance(target_coords, all_coords[target_adjacency[1]])
+        links_length.append([link1_length, link2_length])
+
+        for frame in range(frame_num):
+            # First stage
+            if coor_val[0] == 1:
+                crank_end = rotate_around_center(all_coords[0], angles_delta, crank_location)
+                all_coords[0] = crank_end
+                third_joint = closest_intersection_point(all_coords[1], all_coords[0], crank_length, status_location, link_fixed)
+                all_coords[1] = third_joint
+                if third_joint is None:
+                    linkage_valid = False
+                    break
+
+            if coor_val[2] == 1:
+                crank_end2 = rotate_around_center(all_coords[2], angles_delta, crank_location)
+                all_coords[2] = crank_end2
+                third_joint2 = closest_intersection_point(all_coords[3], all_coords[2], crank_length2, status_location, link_fixed2)
+                all_coords[3] = third_joint2
+                if third_joint2 is None:
+                    linkage_valid = False
+                    break
+
+            # Second stage
+            for i in range(4, 8):
+                if coor_val[i] == 1:
+                    joint_a, joint_b = stage2_adjacency[i-4]
+                    moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+                    all_coords[i] = moved_coord
+                    if moved_coord is None:
+                        linkage_valid = False
+                        break
+
+            if not linkage_valid:
+                break
+
+            # Third stage
+            joint_a, joint_b = target_adjacency
+            moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+            target_coords = moved_coord
+
+            visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, Make_GIF=True, frame_num=frame)
+
+        if not linkage_valid:
+            continue
+        frames = []
+        for frame in range(frame_num):
+            frames.append(imageio.imread(f"GIF_frames/frame_{frame}.png"))
+
+        imageio.mimsave('mechanism.gif', frames, duration=0.1)  # Adjust duration as needed
+
+        # Delete the temporary frames
+        # for angle in angles:
+        #     os.remove(f"GIF_frames/frame_{angle}.png")
+
         break
     except Exception as e:  # Catch any exception
         print(f"An error occurred: {e}")  # Print the error for debugging

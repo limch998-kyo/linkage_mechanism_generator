@@ -1,69 +1,82 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+class CombinedNetwork(nn.Module):
+    def __init__(self):
+        super(CombinedNetwork, self).__init__()
 
-class CoordinateNetwork(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_nodes):
-        super(CoordinateNetwork, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        self.fc3 = nn.Linear(hidden_dim, 2 * output_nodes)
-        self.output_nodes = output_nodes
+        # First stage layers
+        self.fc1 = nn.Linear(12, 32)
+        self.fc2_binary = nn.Linear(32, 2)
+        self.fc2_coords = nn.Linear(32, 8)
+
+        # Second stage layers
+        self.fc3 = nn.Linear(10, 64)  # 8 (coords) + 2 (binary)
+        self.fc4_binary = nn.Linear(64, 4)
+        self.fc4_indices = nn.Linear(64, 16)  # Producing (4,4) tensor 
+        self.fc4_coords = nn.Linear(64, 8)  # Producing (4,2) coordinates
+
+        # Third stage layers
+        self.fc5 = nn.Linear(24, 128)  # 8 (binary) + 16 (coords)
+        # self.fc6_binary = nn.Linear(128, 2)
+        self.fc6_indices = nn.Linear(128, 8)
+        self.fc6_coords = nn.Linear(128, 2) 
 
     def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        return self.fc3(x).view(-1, self.output_nodes, 2)
-
-class AdjacencyNetwork(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_nodes):
-        super(AdjacencyNetwork, self).__init__()
-        self.fc1 = nn.Linear(input_dim, hidden_dim)
-        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
-        # Exclude diagonal for symmetric matrix since diagonal will be zeros
-        self.fc3 = nn.Linear(hidden_dim, output_nodes * (output_nodes - 1) // 2)
-        self.output_nodes = output_nodes
-
-    def forward(self, x):
-        x = torch.relu(self.fc1(x))
-        x = torch.relu(self.fc2(x))
-        adj_vector = torch.sigmoid(self.fc3(x))
-
-        # Create the adjacency matrix
-        indices = torch.triu_indices(self.output_nodes, self.output_nodes, offset=1, device=x.device)
-        adjacency_matrix = torch.zeros(x.shape[0], self.output_nodes, self.output_nodes, device=x.device)
-        adjacency_matrix[:, indices[0], indices[1]] = adj_vector
-        adjacency_matrix[:, indices[1], indices[0]] = adj_vector  # Make it symmetric
+        # First stage
+        x1 = x.view(x.size(0), -1)
+        x1 = F.relu(self.fc1(x1))
         
-        # Convert to binary
-        adjacency_matrix = (adjacency_matrix > 0.5).float()
+        out1_binary = torch.round(torch.sigmoid(self.fc2_binary(x1)))
+        out1_coords = self.fc2_coords(x1)
+        out1_coords = torch.reshape(out1_coords, (-1, 4, 2))
+
+        # Second stage
+        x2 = torch.cat((out1_binary, out1_coords.view(out1_coords.size(0), -1)), dim=1)
+        x2 = F.relu(self.fc3(x2))
         
-        return adjacency_matrix
+        out2_binary = torch.round(torch.sigmoid(self.fc4_binary(x2)))
+        
+        # Generating unique adjacency values using softmax and argmax (assuming two largest values are selected)
+        out2_adj_softmax = F.softmax(self.fc4_indices(x2).view(-1, 4, 4), dim=2)
+        _, top2_indices = torch.topk(out2_adj_softmax, 2, dim=2)
+        out2_adjacency = top2_indices.sort(dim=2).values
+        
+        out2_coords = self.fc4_coords(x2)
+        out2_coords = torch.reshape(out2_coords, (-1, 4, 2))
 
+        # Prepare inputs for the third stage
+        stretched_out1_binary = out1_binary.repeat_interleave(2, dim=1)
 
-class GNN(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_nodes):
+        final_binary_input = torch.cat((stretched_out1_binary, out2_binary), dim=1)
+        
+        output_coords = torch.cat((out1_coords, out2_coords), dim=1)
 
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.output_nodes = output_nodes
+        all_coordinates = torch.cat((out1_coords, out2_coords), dim=1).view(-1, 16)
 
-        super(GNN, self).__init__()
-        self.coordinate_net = CoordinateNetwork(self.input_dim, self.hidden_dim, self.output_nodes)
-        self.adjacency_net = AdjacencyNetwork(self.input_dim, self.hidden_dim, self.output_nodes)
+        # Third stage
+        x3 = torch.cat((final_binary_input, all_coordinates), dim=1)
+        x3 = F.relu(self.fc5(x3))
+        
+        # out3_binary = torch.round(torch.sigmoid(self.fc6_binary(x3)))
+        
+        # Ensuring unique values for indices
+        out3_adj_softmax = F.softmax(self.fc6_indices(x3), dim=1)
+        _, top2_indices = torch.topk(out3_adj_softmax, 2, dim=1)
+        out3_adjacency = top2_indices.sort(dim=1).values
+        
+        out3_coords = self.fc6_coords(x3)
 
-    def forward(self, x):
-        coordinates = self.coordinate_net(x)
-        adjacency_matrix = self.adjacency_net(x)
-        return coordinates, adjacency_matrix
+        return final_binary_input, out2_adjacency, output_coords, out3_adjacency, out3_coords
+    
+if __name__ == '__main__':
+    # Test
+    net = CombinedNetwork()
+    sample_input = torch.rand((1, 6, 2))
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(sample_input)
 
-# # Usage example
-# input_dim = 10 * 2  # 4 2D coordinates
-# hidden_dim = 128
-# output_nodes = 10  # For instance, outputting 10 nodes
-
-# gnn = GNN(input_dim, hidden_dim, output_nodes)
-# inputs = torch.rand(1, input_dim)
-# coordinates, adjacency_matrix = gnn(inputs)
-
-# print(coordinates[0])
-# print(adjacency_matrix[0])
+    print(coor_val)
+    print(stage2_adjacency)
+    print(all_coords)
+    print(target_adjacency)
+    print(target_coords)

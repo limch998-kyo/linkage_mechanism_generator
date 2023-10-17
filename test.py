@@ -16,6 +16,12 @@ class CombinedNetwork(nn.Module):
         self.fc4_indices = nn.Linear(64, 16)  # Producing (4,4) tensor 
         self.fc4_coords = nn.Linear(64, 8)  # Producing (4,2) coordinates
 
+        # Third stage layers
+        self.fc5 = nn.Linear(24, 128)  # 8 (binary) + 16 (coords)
+        # self.fc6_binary = nn.Linear(128, 2)
+        self.fc6_indices = nn.Linear(128, 8)
+        self.fc6_coords = nn.Linear(128, 2) 
+
     def forward(self, x):
         # First stage
         x1 = x.view(x.size(0), -1)
@@ -39,20 +45,38 @@ class CombinedNetwork(nn.Module):
         out2_coords = self.fc4_coords(x2)
         out2_coords = torch.reshape(out2_coords, (-1, 4, 2))
 
-        return out1_binary, out1_coords, out2_binary, out2_adjacency, out2_coords
+        # Prepare inputs for the third stage
+        stretched_out1_binary = out1_binary.repeat_interleave(2, dim=1)
 
-# Test
-net = CombinedNetwork()
-sample_input = torch.rand((1, 6, 2))
-out1_binary, out1_coords, out2_binary, out2_adjacency, out2_coords = net(sample_input)
+        final_binary_input = torch.cat((stretched_out1_binary, out2_binary), dim=1)
+        
+        output_coords = torch.cat((out1_coords, out2_coords), dim=1)
 
-print(out1_binary.shape)
-print(out1_binary)
-print(out1_coords.shape)
-print(out1_coords)
-print(out2_binary.shape)
-print(out2_binary)
-print(out2_adjacency.shape)
-print(out2_adjacency)
-print(out2_coords.shape)
-print(out2_coords)
+        all_coordinates = torch.cat((out1_coords, out2_coords), dim=1).view(-1, 16)
+
+        # Third stage
+        x3 = torch.cat((final_binary_input, all_coordinates), dim=1)
+        x3 = F.relu(self.fc5(x3))
+        
+        # out3_binary = torch.round(torch.sigmoid(self.fc6_binary(x3)))
+        
+        # Ensuring unique values for indices
+        out3_adj_softmax = F.softmax(self.fc6_indices(x3), dim=1)
+        _, top2_indices = torch.topk(out3_adj_softmax, 2, dim=1)
+        out3_adjacency = top2_indices.sort(dim=1).values
+        
+        out3_coords = self.fc6_coords(x3)
+
+        return final_binary_input, out2_adjacency, output_coords, out3_adjacency, out3_coords
+    
+if __name__ == '__main__':
+    # Test
+    net = CombinedNetwork()
+    sample_input = torch.rand((1, 6, 2))
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(sample_input)
+
+    print(coor_val)
+    print(stage2_adjacency)
+    print(all_coords)
+    print(target_adjacency)
+    print(target_coords)

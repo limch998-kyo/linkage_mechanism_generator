@@ -8,10 +8,10 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
     # Create a new figure and axis
     fig, ax = plt.subplots()
 
-    xmin = -3
-    xmax = 3
-    ymin = -3
-    ymax = 3
+    xmin = -50
+    xmax = 50
+    ymin = -50
+    ymax = 50
 
     ax.set_xlim([xmin, xmax])
     ax.set_ylim([ymin, ymax])

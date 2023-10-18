@@ -7,7 +7,7 @@ from visiualizer import visualize_linkage_system
 
 
 class Linkage_mechanism():
-    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, target_location,frame_num=2, angles_delta=2*np.pi/60):
+    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, target_location,frame_num=60, angles_delta=2*np.pi/60):
         # visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
         self.coor_val = coor_val
         self.all_coords = all_coords
@@ -55,6 +55,14 @@ class Linkage_mechanism():
         self.output_link2_length = euclidean_distance(self.target_coords, self.all_coords[self.target_adjacency[1]])
         self.links_length.append([self.output_link1_length, self.output_link2_length])
 
+        # Flatten links_length
+        self.links_length_array = np.array(self.links_length).flatten()
+        
+        # Concatenate all arrays
+        self.all_lengths = np.concatenate([self.crank_lengths, self.link_fixeds, self.links_length_array])
+        
+        # Compute the average
+        self.overall_avg = np.mean(self.all_lengths)
 
     def check_linkage_valid(self):
 
@@ -162,7 +170,10 @@ class Linkage_mechanism():
         initial_target_distance = euclidean_distance(initial_target_coords, self.first_target_coord)
 
 
-        total_score = 0
+        # Calculating averages
+        # print(self.overall_avg)
+
+        total_score = 5.0
         # print(self.all_coords)
 
         for _ in range(self.frame_num):
@@ -223,5 +234,6 @@ class Linkage_mechanism():
             # print(self.links_length)
 
 
-
+        if self.overall_avg > 5:
+            total_score = total_score - total_score * (self.overall_avg - 5.0)
         return total_score

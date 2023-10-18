@@ -65,7 +65,7 @@ def closest_intersection_point(input_coord, P1, r1, P2, r2):
     else:
         return None  # No intersection
 
-def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, frame_num=2):
+def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, frame_num=60):
 
 
     coor_val = coor_val.clone()
@@ -95,20 +95,37 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     link_fixeds = torch.stack([link_fixed, link_fixed2])
 
     # Second stage
-    links_length = []
+    # 5 rows (4 from the second stage + 1 from the third stage) and 2 columns (for link1 and link2 lengths)
+    links_length = torch.zeros(5, 2)
+
+    # Second stage
     for i in range(4, 8):
         link1_length = euclidean_distance(all_coords[i], all_coords[stage2_adjacency[i-4][0]])
         link2_length = euclidean_distance(all_coords[i], all_coords[stage2_adjacency[i-4][1]])
-        links_length.append([link1_length, link2_length])
+        
+        links_length[i-4, 0] = link1_length
+        links_length[i-4, 1] = link2_length
 
-    #Third stage
+    # Third stage
     output_link1_length = euclidean_distance(target_coords, all_coords[target_adjacency[0]])
     output_link2_length = euclidean_distance(target_coords, all_coords[target_adjacency[1]])
-    # Here I assume you wanted to append the 'output' lengths instead of the previously computed lengths
-    links_length.append([output_link1_length, output_link2_length])
+
+    links_length[4, 0] = output_link1_length
+    links_length[4, 1] = output_link2_length
+
+    # Flatten links_length and convert to a tensor
+    links_length_tensor = torch.FloatTensor(links_length.detach().numpy().flatten())
+
+    # Concatenate all tensors
+    all_lengths = torch.cat([crank_lengths, link_fixeds, links_length_tensor])
+
+    # Compute the average
+    overall_avg = torch.mean(all_lengths)
+
+    # print("Average of all lengths:", overall_avg.item())
 
 
-    total_score = torch.tensor(0.0)
+    total_score = torch.tensor(5.0)
     # print(all_coords)
 
     for _ in range(frame_num):
@@ -164,7 +181,9 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                 moving_to_target1 = True
                 total_score += torch.tensor(1.0)
                 continue
-    return total_score
+    if overall_avg.item() > 5:
+        total_score = total_score - total_score * (overall_avg - 5.0)
+    return overall_avg,total_score
     # def evaluate_linkage(self):
     #     moving_to_target1 = True
     #     initial_target_coords = self.target_coords

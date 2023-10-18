@@ -7,7 +7,7 @@ from visiualizer import visualize_linkage_system
 
 
 class Linkage_mechanism():
-    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, frame_num=30, angles_delta=2*np.pi/30):
+    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, frame_num=60, angles_delta=2*np.pi/60):
         # visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
         self.coor_val = coor_val
         self.all_coords = all_coords
@@ -93,8 +93,10 @@ class Linkage_mechanism():
         return True
     
     def visualize_linkage(self):
+        target_trace = []  # Store the trace of the target_coords
 
         for frame in range(self.frame_num):
+
             # First stage
             for i in range(0,4,2):
                 if self.coor_val[i] == 1:
@@ -117,7 +119,10 @@ class Linkage_mechanism():
 
             self.target_coords = moved_coord
 
-            visualize_linkage_system(self.coor_val, self.stage2_adjacency, self.all_coords, self.target_adjacency, self.target_coords, self.crank_location, self.status_location, Make_GIF=True, frame_num=frame)
+            # Append the current target_coords to the trace list
+            target_trace.append(tuple(self.target_coords))
+
+            visualize_linkage_system(self.coor_val, self.stage2_adjacency, self.all_coords, self.target_adjacency, self.target_coords, self.crank_location, self.status_location, target_trace, Make_GIF=True, frame_num=frame)
 
         frames = []
         current_directory = os.getcwd()

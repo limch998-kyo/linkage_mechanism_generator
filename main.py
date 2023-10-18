@@ -1,7 +1,7 @@
 # from points_generator import generate_coordinates
 import torch
 
-from visiualizer import visualize_linkage_system
+from utils import output_process
 from GNN_network import CombinedNetwork
 from src.linkage_builder import Linkage_mechanism
 
@@ -28,17 +28,12 @@ while True:
     attempt += 1
     net = CombinedNetwork()
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
-
-    coor_val = coor_val.detach().numpy()
-    stage2_adjacency = stage2_adjacency.detach().numpy()
-    all_coords = all_coords.detach().numpy()
-    target_adjacency = target_adjacency.detach().numpy()
-    target_coords = target_coords.detach().numpy()
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords)
 
     mechanism = Linkage_mechanism(coor_val, all_coords, target_coords, stage2_adjacency, target_adjacency, crank_location, status_location)
 
     if mechanism.check_linkage_valid():
-        print("valid linkage found")
+        print("valid linkage found at attempt: ", attempt)
         mechanism.visualize_linkage()
         break
 

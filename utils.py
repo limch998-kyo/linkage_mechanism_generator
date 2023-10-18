@@ -1,6 +1,16 @@
 from matplotlib import pyplot as plt
 import math
 import numpy as np
+
+def output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords):
+    coor_val = coor_val.detach().numpy()
+    stage2_adjacency = stage2_adjacency.detach().numpy()
+    all_coords = all_coords.detach().numpy()
+    target_adjacency = target_adjacency.detach().numpy()
+    target_coords = target_coords.detach().numpy()
+
+    return coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords
+
 def share_adjoining_point(adj_matrix, fixed_point_1, fixed_point_2):
     for node in range(adj_matrix.shape[0]):
         if node != fixed_point_1 and node != fixed_point_2:
@@ -31,12 +41,11 @@ def visualize_linkage(coordinates, adjacency_matrix):
     plt.gca().set_aspect('equal', adjustable='box')
     plt.show()
 
+
+
 def calculate_angle(point1, point2):
     """Calculate angle between two points with respect to the positive x-axis."""
     dx = point2[0] - point1[0]
     dy = point2[1] - point1[1]
     return math.atan2(dy, dx)
 
-def euclidean_distance(point1, point2):
-    """Calculate Euclidean distance between two points."""
-    return np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)

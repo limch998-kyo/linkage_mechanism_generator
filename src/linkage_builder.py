@@ -24,9 +24,11 @@ class Linkage_mechanism():
         #First stage
         self.crank_length = euclidean_distance(self.crank_location, self.all_coords[0])
         self.crank_length2 = euclidean_distance(self.crank_location, self.all_coords[2])
+        self.crank_lengths = [self.crank_length, self.crank_length2]
 
         self.link_fixed = euclidean_distance(self.all_coords[1], self.status_location)
         self.link_fixed2 = euclidean_distance(self.all_coords[3], self.status_location)
+        self.link_fixeds = [self.link_fixed, self.link_fixed2]
 
         #Second stage
 
@@ -61,14 +63,14 @@ class Linkage_mechanism():
         if self.coor_val[joint_a] == 0 or self.coor_val[joint_b] == 0:
             return False
 
-        for frame in range(self.frame_num):
+        for _ in range(self.frame_num):
             # First stage
             for i in range(0,4,2):
                 if self.coor_val[i] == 1:
                     crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
                     self.all_coords[i] = crank_end
-                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_length, self.status_location, self.link_fixed)
-                    self.all_coords[1] = third_joint
+                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])
+                    self.all_coords[i+1] = third_joint
                     if third_joint is None:
                         return False
 
@@ -92,18 +94,14 @@ class Linkage_mechanism():
     
     def visualize_linkage(self):
 
-
-        frame_num = 30
-        angles_delta = 2*np.pi/frame_num
-
-        for frame in range(frame_num):
+        for frame in range(self.frame_num):
             # First stage
             for i in range(0,4,2):
                 if self.coor_val[i] == 1:
-                    crank_end = rotate_around_center(self.all_coords[i], angles_delta, self.crank_location)
+                    crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
                     self.all_coords[i] = crank_end
-                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_length, self.status_location, self.link_fixed)
-                    self.all_coords[1] = third_joint
+                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])
+                    self.all_coords[i+1] = third_joint
 
 
             # Second stage
@@ -124,7 +122,7 @@ class Linkage_mechanism():
         frames = []
         current_directory = os.getcwd()
         # base_dir = os.path.dirname(current_directory)
-        for frame in range(frame_num):
+        for frame in range(self.frame_num):
             frames.append(imageio.imread(f"{current_directory}/GIF_frames/frame_{frame}.png"))
 
         imageio.mimsave(f'{current_directory}/mechanism.gif', frames, duration=0.1)  # Adjust duration as needed

@@ -39,6 +39,10 @@ epochs = 10000
 for epoch in range(epochs):
 
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
+    all_coords = all_coords/100.0
+    target_coords = target_coords/100.0
+
+
     coor_val_copy = coor_val
     stage2_adjacency_copy = stage2_adjacency
     all_coords_copy = all_coords

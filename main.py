@@ -10,7 +10,7 @@ from src.linkage_builder import Linkage_mechanism
 
 
 input = []
-target_location = [[5,5],[8,5],[5,4],[8,4]]
+target_location = [[-2,2.5],[-2,1.5],[2,2.5],[2,1.5]]
 crank_location = [0,0]
 status_location = [1,0]
 
@@ -30,7 +30,15 @@ while True:
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords)
 
-    mechanism = Linkage_mechanism(coor_val, all_coords, target_coords, stage2_adjacency, target_adjacency, crank_location, status_location)
+    mechanism = Linkage_mechanism(coor_val,
+                                  all_coords, 
+                                  target_coords, 
+                                  stage2_adjacency, 
+                                  target_adjacency, 
+                                  crank_location, 
+                                  status_location,
+                                  target_location
+                                  )
 
     if mechanism.check_linkage_valid():
         print("valid linkage found at attempt: ", attempt)

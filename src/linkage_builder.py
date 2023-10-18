@@ -7,7 +7,7 @@ from visiualizer import visualize_linkage_system
 
 
 class Linkage_mechanism():
-    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, frame_num=60, angles_delta=2*np.pi/60):
+    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, target_location,frame_num=60, angles_delta=2*np.pi/60):
         # visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
         self.coor_val = coor_val
         self.all_coords = all_coords
@@ -16,9 +16,18 @@ class Linkage_mechanism():
         self.target_adjacency = target_adjacency
         self.crank_location = crank_location
         self.status_location = status_location
+        self.target_location = target_location
 
         self.frame_num = frame_num
         self.angles_delta = angles_delta
+
+        self.sorted_target_locations = sorted(target_location, key=lambda k: (k[0], k[1]))
+
+        # Determine the lower left corner, width, and height of target location
+        self.target_lower_left = self.sorted_target_locations[0]
+        self.target_width = self.sorted_target_locations[3][0] - self.sorted_target_locations[0][0]
+        self.target_height = self.sorted_target_locations[3][1] - self.sorted_target_locations[0][1]
+        self.target_location_info = [self.target_lower_left, self.target_width, self.target_height]
 
         #Defining Link lengths
         #First stage
@@ -122,7 +131,18 @@ class Linkage_mechanism():
             # Append the current target_coords to the trace list
             target_trace.append(tuple(self.target_coords))
 
-            visualize_linkage_system(self.coor_val, self.stage2_adjacency, self.all_coords, self.target_adjacency, self.target_coords, self.crank_location, self.status_location, target_trace, Make_GIF=True, frame_num=frame)
+            visualize_linkage_system(self.coor_val, 
+                                     self.stage2_adjacency, 
+                                     self.all_coords, 
+                                     self.target_adjacency, 
+                                     self.target_coords, 
+                                     self.crank_location, 
+                                     self.status_location,
+                                     self.target_location_info, 
+                                     target_trace, 
+                                     Make_GIF=True, 
+                                     frame_num=frame
+                                     )
 
         frames = []
         current_directory = os.getcwd()

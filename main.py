@@ -1,168 +1,201 @@
 # from points_generator import generate_coordinates
 import torch
-import numpy as np
-import imageio
 
-from geometry import rotate_around_center, closest_intersection_point, euclidean_distance
-from visiualizer import visualize_linkage_system
+from utils import output_process
 from GNN_network import CombinedNetwork
-from 
+from src.linkage_builder import Linkage_mechanism
+from train import get_loss
 
 
 
 
 
 input = []
-target_location = [[5,5],[8,5],[5,4],[8,4]]
+target_location = [[-5,5.5],[-5,4.5],[5,5.5],[5,4.5]]
 crank_location = [0,0]
 status_location = [1,0]
 
+
+# Convert each list into individual tensors
+target_location_tensor = torch.tensor(target_location, dtype=torch.float)
+crank_location_tensor = torch.tensor([crank_location], dtype=torch.float)
+status_location_tensor = torch.tensor([status_location], dtype=torch.float)
+
+
 input.append(crank_location)
 input.append(status_location)
+
 for i in range(len(target_location)):
     input.append(target_location[i])
 
 input_tensor = torch.tensor([input], dtype=torch.float)
 
-attempt = 0
-while True:
-    try:
-        
 
-        flag = False
-        attempt += 1
-        net = CombinedNetwork()
-        coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
+net = CombinedNetwork()
+optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+# env = LinkageEnvironment(input_tensor)
+epochs = 10000
 
-        coor_val = coor_val.detach().numpy()
-        stage2_adjacency = stage2_adjacency.detach().numpy()
-        all_coords = all_coords.detach().numpy()
-        target_adjacency = target_adjacency.detach().numpy()
-        target_coords = target_coords.detach().numpy()
-        # coor_val = np.array([1, 1, 0, 0, 1, 1, 0, 0])
+for epoch in range(epochs):
 
-        if np.all(coor_val[:4] == 0):
-            flag = True
-        elif np.all(coor_val[-4:] == 0):
-            flag = True
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
+    all_coords = all_coords/100.0
+    target_coords = target_coords/100.0
 
 
+    coor_val_copy = coor_val
+    stage2_adjacency_copy = stage2_adjacency
+    all_coords_copy = all_coords
+    target_adjacency_copy = target_adjacency
+    target_coords_copy = target_coords
+    # print(all_coords)
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords)
+    # print(all_coords)
 
-        for i in range(4, 8):
-            joint_a, joint_b = stage2_adjacency[i-4]
-            if coor_val[i]==0:
-                continue
-            elif coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
-                flag = True
 
 
-        joint_a, joint_b = target_adjacency
-        if coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
-            flag = True
-        
-        if flag:
-            continue
-        # print(np.sum(coor_val))
-        # if np.sum(coor_val)>6:
-        #     print(attempt)
+    mechanism = Linkage_mechanism(coor_val.copy(),
+                                  all_coords.copy(), 
+                                  target_coords.copy(), 
+                                  stage2_adjacency.copy(), 
+                                  target_adjacency.copy(), 
+                                  crank_location.copy(), 
+                                  status_location.copy(),
+                                  target_location.copy()
+                                  )
+    # print(all_coords)
+
+
+    if mechanism.check_linkage_valid():
+
+        mechanism = Linkage_mechanism(coor_val.copy(),
+                                    all_coords.copy(), 
+                                    target_coords.copy(), 
+                                    stage2_adjacency.copy(), 
+                                    target_adjacency.copy(), 
+                                    crank_location.copy(), 
+                                    status_location.copy(),
+                                    target_location.copy()
+                                    )
+
+        score = mechanism.evaluate_linkage()
+
+        overall_avg, loss = get_loss(coor_val_copy, 
+                 all_coords_copy, 
+                 target_coords_copy, 
+                 stage2_adjacency_copy,
+                 target_adjacency_copy,
+                 crank_location_tensor[0],
+                 status_location_tensor[0],
+                 target_location_tensor)
+        loss = -loss
+
+        # if overall_avg.item() > 10.0:
+        #     if epoch % 10 == 0:
+        #         print('epoch: ', epoch, 'mechanism invalid')
+        #     for param in net.parameters():
+        #         param.data = torch.randn_like(param)
         #     continue
 
-        print(coor_val)
-        print(stage2_adjacency)
-        print(all_coords)
-        print(target_adjacency)
-        print(target_coords)
+        if epoch % 10 == 0:
+            print('epoch: ', epoch, 'loss: ', loss.item(), 'score: ', score)
+            if epoch % 100 == 0:
+                mechanism = Linkage_mechanism(coor_val.copy(),
+                                            all_coords.copy(), 
+                                            target_coords.copy(), 
+                                            stage2_adjacency.copy(), 
+                                            target_adjacency.copy(), 
+                                            crank_location.copy(), 
+                                            status_location.copy(),
+                                            target_location.copy(),
+                                            epoch=epoch
+                                            )
+                mechanism.visualize_linkage()
 
-        # Call the visualization function
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    else:
+        if epoch % 10 == 0:
+            print('epoch: ', epoch, 'mechanism invalid')
+        for param in net.parameters():
+            param.data = torch.randn_like(param)
+        continue
 
 
 
-        # visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
+# net = CombinedNetwork()
+# optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+# # env = LinkageEnvironment(input_tensor)
+# epochs = 10000
+# initilization_patience = 50
+# fail_count = 0
 
-        frame_num = 60
-        angles = np.linspace(0, 4*np.pi, frame_num)  # You can adjust this as needed
-        angles_delta = 2*np.pi/30
+# for epoch in range(epochs):
+#     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
 
-        linkage_valid = True
+#     mechanism = reciprocate_movement(input_tensor)
 
-        crank_length = euclidean_distance(crank_location, all_coords[0])
-        crank_length2 = euclidean_distance(crank_location, all_coords[2])
+#     loss = 1  # default small negative reward for invalid linkage
 
-        link_fixed = euclidean_distance(all_coords[1], status_location)
-        link_fixed2 = euclidean_distance(all_coords[3], status_location)
+#     loss = mechanism.get_loss(
+#         coor_val=coor_val,
+#         stage2_adjacency=stage2_adjacency,
+#         all_coords=all_coords,
+#         target_adjacency=target_adjacency,
+#         target_coords=target_coords,
+#         crank_location=crank_location[0],
+#         status_location=status_location[0],
+#         target_location=target_location
+#     )
 
-        #Second stage
+#     loss = -loss
 
-        links_length = []
-        for i in range(4, 8):
-            link1_length = euclidean_distance(all_coords[i], all_coords[stage2_adjacency[i-4][0]])
-            link2_length = euclidean_distance(all_coords[i], all_coords[stage2_adjacency[i-4][1]])
-            links_length.append([link1_length, link2_length])
 
-        #Third stage
-        link1_length = euclidean_distance(target_coords, all_coords[target_adjacency[0]])
-        link2_length = euclidean_distance(target_coords, all_coords[target_adjacency[1]])
-        links_length.append([link1_length, link2_length])
 
-        for frame in range(frame_num):
-            # First stage
-            if coor_val[0] == 1:
-                crank_end = rotate_around_center(all_coords[0], angles_delta, crank_location)
-                all_coords[0] = crank_end
-                third_joint = closest_intersection_point(all_coords[1], all_coords[0], crank_length, status_location, link_fixed)
-                all_coords[1] = third_joint
-                if third_joint is None:
-                    linkage_valid = False
-                    break
+#     if loss == torch.tensor(1.0):
+#         fail_count += 1
+#         if fail_count > initilization_patience:
 
-            if coor_val[2] == 1:
-                crank_end2 = rotate_around_center(all_coords[2], angles_delta, crank_location)
-                all_coords[2] = crank_end2
-                third_joint2 = closest_intersection_point(all_coords[3], all_coords[2], crank_length2, status_location, link_fixed2)
-                all_coords[3] = third_joint2
-                if third_joint2 is None:
-                    linkage_valid = False
-                    break
+#         continue
+#     else:
+#         fail_count = 0
 
-            # Second stage
-            for i in range(4, 8):
-                if coor_val[i] == 1:
-                    joint_a, joint_b = stage2_adjacency[i-4]
-                    moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
-                    all_coords[i] = moved_coord
-                    if moved_coord is None:
-                        linkage_valid = False
-                        break
 
-            if not linkage_valid:
-                break
 
-            # Third stage
-            joint_a, joint_b = target_adjacency
-            moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
-            target_coords = moved_coord
+#     optimizer.zero_grad()
+#     loss.backward()
+#     optimizer.step()
 
-            visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, Make_GIF=True, frame_num=frame)
+#     if epoch % 100 == 0:
+#         print(target_coords)
+#         coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords)
+#         print(target_coords)
+#         crank_location_np = crank_location.detach().numpy()
+#         status_location_np = status_location.detach().numpy()
+#         target_location_np = target_location.detach().numpy()
 
-        if not linkage_valid:
-            continue
-        frames = []
-        for frame in range(frame_num):
-            frames.append(imageio.imread(f"GIF_frames/frame_{frame}.png"))
+#         mechanism = Linkage_mechanism(coor_val,
+#                                       all_coords, 
+#                                       target_coords, 
+#                                       stage2_adjacency, 
+#                                       target_adjacency, 
+#                                       crank_location_np[0], 
+#                                       status_location_np[0],
+#                                       target_location_np
+#                                       )
+        
+#         # if mechanism.check_linkage_valid():
+#         print(loss)
+#         print("valid linkage found at epoch: ", epoch)
+#         # score = mechanism.evaluate_linkage()
+#         # print('score: ', score)
+#         mechanism.visualize_linkage()
+    
 
-        imageio.mimsave('mechanism.gif', frames, duration=0.1)  # Adjust duration as needed
 
-        # Delete the temporary frames
-        # for angle in angles:
-        #     os.remove(f"GIF_frames/frame_{angle}.png")
+# # using joints connected to crankpoints
+# # make a gif visualization that simulates linkage mechanism when crank is rotating
+# # predict each joints location from joint0 to joint7 and use this information to locate target joint
 
-        break
-    except Exception as e:  # Catch any exception
-        print(f"An error occurred: {e}")  # Print the error for debugging
-        continue  # Continue to the next iteration of the loop
-
-# using joints connected to crankpoints
-# make a gif visualization that simulates linkage mechanism when crank is rotating
-# predict each joints location from joint0 to joint7 and use this information to locate target joint
-
-# when predicting joints next frame location use intercept circle to calculate next location
+# # when predicting joints next frame location use intercept circle to calculate next location

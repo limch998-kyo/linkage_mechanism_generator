@@ -1,16 +1,17 @@
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
-def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, Make_GIF=False, frame_num=0):
+def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_location_info, target_trace=[], Make_GIF=False, frame_num=0):
 
 
     # Create a new figure and axis
     fig, ax = plt.subplots()
 
-    xmin = -3
-    xmax = 3
-    ymin = -3
-    ymax = 3
+    xmin = -10
+    xmax = 10
+    ymin = -10
+    ymax = 10
 
     ax.set_xlim([xmin, xmax])
     ax.set_ylim([ymin, ymax])
@@ -50,6 +51,17 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
     ax.scatter(crank_location[0], crank_location[1], c='orange', marker='o')  # Crank location
     ax.scatter(status_location[0], status_location[1], c='orange', marker='o')  # Status location
     ax.scatter(target_coords[0], target_coords[1], c='blue', marker='o')  # Target location
+
+    # Draw the given target locations rectangle
+
+    lower_left, width, height = target_location_info
+
+    rect = Rectangle(lower_left, width, height, edgecolor='cyan', facecolor='none')  # Change color as per your needs
+    ax.add_patch(rect)
+
+    # Draw the trace of the target_coords
+    for (x, y) in target_trace:
+        ax.scatter(x, y, c='magenta', marker='.', s=10)  # Change color and size as per your needs
 
     if Make_GIF:
         plt.savefig(f"GIF_frames/frame_{frame_num}.png")

@@ -7,7 +7,7 @@ from visiualizer import visualize_linkage_system
 
 
 class Linkage_mechanism():
-    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, target_location,frame_num=60, angles_delta=2*np.pi/60):
+    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, target_location,epoch = 0,frame_num=60, angles_delta=2*np.pi/60):
         # visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
         self.coor_val = coor_val
         self.all_coords = all_coords
@@ -18,6 +18,7 @@ class Linkage_mechanism():
         self.status_location = status_location
         self.target_location = target_location
 
+        self.epoch = epoch
         self.frame_num = frame_num
         self.angles_delta = angles_delta
 
@@ -161,7 +162,7 @@ class Linkage_mechanism():
         for frame in range(self.frame_num):
             frames.append(imageio.imread(f"{current_directory}/GIF_frames/frame_{frame}.png"))
 
-        imageio.mimsave(f'{current_directory}/mechanism.gif', frames, duration=0.1)  # Adjust duration as needed
+        imageio.mimsave(f'{current_directory}/learn_process/mechanism_{self.epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
         print("mechanism gif saved")
 
     def evaluate_linkage(self):

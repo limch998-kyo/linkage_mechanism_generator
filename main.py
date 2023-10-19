@@ -107,7 +107,8 @@ for epoch in range(epochs):
                                             target_adjacency.copy(), 
                                             crank_location.copy(), 
                                             status_location.copy(),
-                                            target_location.copy()
+                                            target_location.copy(),
+                                            epoch=epoch
                                             )
                 mechanism.visualize_linkage()
 

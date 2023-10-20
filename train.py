@@ -30,12 +30,14 @@ def circle_intercept(P1, r1, P2, r2):
     d = torch.sqrt((x2 - x1)**2 + (y2 - y1)**2)
     
     # Check for no solution
-    if d > r1 + r2 or d < torch.abs(r1 - r2):
-        return None  # No intersection
+    if d > r1 + r2:
+        return None, "Circles are too far apart to intersect."
+    if d < torch.abs(r1 - r2):
+        return None, "One circle is inside the other, without touching."
     
     # Check for coincidence
     if d == 0 and r1 == r2:
-        return [(x1, y1)]  # Infinite intersections, but return the center
+        return torch.tensor([x1.item(), y1.item()]), "Circles are coincident."
     
     # Calculate the intersection point(s)
     a = (r1**2 - r2**2 + d**2) / (2*d)
@@ -51,7 +53,7 @@ def circle_intercept(P1, r1, P2, r2):
     x4_2 = x3 - h * (y2 - y1) / d
     y4_2 = y3 + h * (x2 - x1) / d
     
-    return torch.tensor([x4_1.item(), y4_1.item(), x4_2.item(), y4_2.item()])
+    return torch.tensor([x4_1.item(), y4_1.item(), x4_2.item(), y4_2.item()]), None
 
 def closest_point(input_coord, potential_coords):
     distances = torch.sqrt((potential_coords[::2] - input_coord[0])**2 + (potential_coords[1::2] - input_coord[1])**2)
@@ -59,11 +61,11 @@ def closest_point(input_coord, potential_coords):
     return potential_coords[2*index:2*index+2]
 
 def closest_intersection_point(input_coord, P1, r1, P2, r2):
-    intersections = circle_intercept(P1, r1, P2, r2)
+    intersections, reason = circle_intercept(P1, r1, P2, r2)
     if intersections is not None:
-        return closest_point(input_coord, intersections)
+        return closest_point(input_coord, intersections), None
     else:
-        return None  # No intersection
+        return None, reason
 
 def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, frame_num=60):
 
@@ -148,7 +150,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                 crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
                 # print('cranck_end',crank_end)
                 all_coords[i] = crank_end
-                third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_lengths[i//2], status_location, link_fixeds[i//2])
+                third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_lengths[i//2], status_location, link_fixeds[i//2])
                 all_coords[i+1] = third_joint
                 # print('third_joint',third_joint)
 
@@ -156,7 +158,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         for i in range(4, 8):
             if coor_val[i] == 1:
                 joint_a, joint_b = stage2_adjacency[i-4]
-                moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+                moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
                 all_coords[i] = moved_coord
                 # print(all_coords)
 
@@ -165,7 +167,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # print(joint_a,joint_b)
         # print(target_coords)
         # print(links_length)
-        moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+        moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
 
         target_coords = moved_coord
 

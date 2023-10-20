@@ -42,6 +42,9 @@ for epoch in range(epochs):
     all_coords = all_coords/100.0
     target_coords = target_coords/100.0
 
+    coor_val = torch.tensor([1.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0])
+    # print(target_adjacency)
+    target_adjacency = torch.tensor([0,4])
 
     coor_val_copy = coor_val
     stage2_adjacency_copy = stage2_adjacency
@@ -51,8 +54,6 @@ for epoch in range(epochs):
     # print(all_coords)
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords)
     # print(all_coords)
-
-
 
     mechanism = Linkage_mechanism(coor_val.copy(),
                                   all_coords.copy(), 
@@ -66,7 +67,8 @@ for epoch in range(epochs):
     # print(all_coords)
 
 
-    if mechanism.check_linkage_valid():
+    # if mechanism.check_linkage_valid():
+    if True:
 
         mechanism = Linkage_mechanism(coor_val.copy(),
                                     all_coords.copy(), 
@@ -80,7 +82,7 @@ for epoch in range(epochs):
 
         score = mechanism.evaluate_linkage()
 
-        overall_avg, loss = get_loss(coor_val_copy, 
+        loss = get_loss(coor_val_copy, 
                  all_coords_copy, 
                  target_coords_copy, 
                  stage2_adjacency_copy,
@@ -88,7 +90,6 @@ for epoch in range(epochs):
                  crank_location_tensor[0],
                  status_location_tensor[0],
                  target_location_tensor)
-        loss = -loss
 
         # if overall_avg.item() > 10.0:
         #     if epoch % 10 == 0:

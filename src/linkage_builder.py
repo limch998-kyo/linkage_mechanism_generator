@@ -117,6 +117,12 @@ class Linkage_mechanism():
         target_trace = []  # Store the trace of the target_coords
 
         for frame in range(self.frame_num):
+            flag = True
+            t = frame / self.frame_num  # t varies from 0 to 1
+            marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))  # This will vary between 0 and 1 in a back-and-forth manner due to the cosine function
+
+            marker_x_position = self.target_lower_left[0] + self.target_width * marker_offset
+            marker_position = (marker_x_position, self.target_lower_left[1] + self.target_height/2)  
 
             # First stage
             for i in range(0,4,2):
@@ -144,17 +150,18 @@ class Linkage_mechanism():
             target_trace.append(tuple(self.target_coords))
 
             visualize_linkage_system(self.coor_val, 
-                                     self.stage2_adjacency, 
-                                     self.all_coords, 
-                                     self.target_adjacency, 
-                                     self.target_coords, 
-                                     self.crank_location, 
-                                     self.status_location,
-                                     self.target_location_info, 
-                                     target_trace, 
-                                     Make_GIF=True, 
-                                     frame_num=frame
-                                     )
+                                    self.stage2_adjacency, 
+                                    self.all_coords, 
+                                    self.target_adjacency, 
+                                    self.target_coords, 
+                                    self.crank_location, 
+                                    self.status_location,
+                                    self.target_location_info, 
+                                    target_trace, 
+                                    Make_GIF=True, 
+                                    frame_num=frame,
+                                    marker_position=marker_position
+                                    )
 
         frames = []
         current_directory = os.getcwd()
@@ -166,18 +173,25 @@ class Linkage_mechanism():
         print("mechanism gif saved")
 
     def evaluate_linkage(self):
-        moving_to_target1 = True
-        initial_target_coords = self.target_coords
-        initial_target_distance = euclidean_distance(initial_target_coords, self.first_target_coord)
+        # moving_to_target1 = True
+        # initial_target_coords = self.target_coords
+        # initial_target_distance = euclidean_distance(initial_target_coords, self.first_target_coord)
 
 
         # Calculating averages
         # print(self.overall_avg)
 
-        total_score = 5.0
+        loss = 0.0
         # print(self.all_coords)
 
-        for _ in range(self.frame_num):
+        for frame in range(self.frame_num):
+
+
+            t = frame / self.frame_num  # t varies from 0 to 1
+            marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))  # This will vary between 0 and 1 in a back-and-forth manner due to the cosine function
+
+            marker_x_position = self.target_lower_left[0] + self.target_width * marker_offset
+            marker_position = (marker_x_position, self.target_lower_left[1] + self.target_height/2)  
 
             # First stage
             for i in range(0,4,2):
@@ -208,33 +222,12 @@ class Linkage_mechanism():
             # print(self.links_length)
             # print(self.target_coords,self.all_coords[joint_a], self.links_length[-1][0], self.all_coords[joint_b], self.links_length[-1][1])
             self.target_coords = moved_coord
-            if moving_to_target1:
-                current_target_distance = euclidean_distance(self.target_coords, self.first_target_coord)
-                distance_reduced = initial_target_distance - euclidean_distance(self.target_coords, self.first_target_coord)
-                total_score += distance_reduced
-                initial_target_coords = self.target_coords
-                initial_target_distance = current_target_distance
 
-                if euclidean_distance(self.target_coords, self.first_target_coord) < 0.5:
-                    initial_target_distance = euclidean_distance(self.target_coords, self.second_target_coord)
-                    moving_to_target1 = False
-                    total_score += 1.0
-                    continue
-
-            if not moving_to_target1:
-                current_target_distance = euclidean_distance(self.target_coords, self.second_target_coord)
-                distance_reduced = initial_target_distance - euclidean_distance(self.target_coords, self.second_target_coord)
-                total_score += distance_reduced
-                initial_target_coords = self.target_coords
-                initial_target_distance = current_target_distance
-                if euclidean_distance(self.target_coords, self.second_target_coord) < 0.5:
-                    initial_target_distance = euclidean_distance(self.target_coords, self.first_target_coord)
-                    moving_to_target1 = True
-                    total_score += 1.0
-                    continue
+            loss = loss + euclidean_distance(self.target_coords, marker_position)
             # print(self.links_length)
 
-
         if self.overall_avg > 5:
-            total_score = total_score - total_score * (self.overall_avg - 5.0)
-        return total_score
+            loss = np.sqrt(loss + (self.overall_avg - 5.0))
+        else:
+            loss = np.sqrt(loss)
+        return loss

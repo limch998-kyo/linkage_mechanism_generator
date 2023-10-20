@@ -76,9 +76,9 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
     angles_delta = torch.tensor(2 * torch.pi / 60)
 
-
     first_target_coord = (target_location[0] + target_location[1]) / 2
     second_target_coord = (target_location[2] + target_location[3]) /2
+    target_width = target_location[2][0] - target_location[0][0]
 
     moving_to_target1 = True
     initial_target_coords = target_coords
@@ -125,10 +125,21 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     # print("Average of all lengths:", overall_avg.item())
 
 
-    total_score = torch.tensor(5.0)
+    loss = torch.tensor(0.0)
     # print(all_coords)
 
-    for _ in range(frame_num):
+    for frame in range(frame_num):
+
+# Assuming all variables are tensors.
+        t = frame / frame_num # Ensure division is floating point.
+
+        marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))
+
+        # Assuming first_target_coord is a tensor of shape [2], 
+        # you need to extract x and y components separately.
+        marker_x_position = first_target_coord[0] + target_width * marker_offset
+        marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=first_target_coord.device)
+
 
         # First stage
         for i in range(0,4,2):
@@ -157,33 +168,14 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
 
         target_coords = moved_coord
-        if moving_to_target1:
-            current_target_distance = euclidean_distance(target_coords, first_target_coord)
-            distance_reduced = initial_target_distance - euclidean_distance(target_coords, first_target_coord)
-            total_score += distance_reduced
-            initial_target_coords = target_coords
-            initial_target_distance = current_target_distance
 
-            if euclidean_distance(target_coords, first_target_coord) < 0.5:
-                initial_target_distance = euclidean_distance(target_coords, second_target_coord)
-                moving_to_target1 = False
-                total_score += torch.tensor(1.0)
-                continue
-
-        if not moving_to_target1:
-            current_target_distance = euclidean_distance(target_coords, second_target_coord)
-            distance_reduced = initial_target_distance - euclidean_distance(target_coords, second_target_coord)
-            total_score += distance_reduced
-            initial_target_coords = target_coords
-            initial_target_distance = current_target_distance
-            if euclidean_distance(target_coords, second_target_coord) < 0.5:
-                initial_target_distance = euclidean_distance(target_coords, first_target_coord)
-                moving_to_target1 = True
-                total_score += torch.tensor(1.0)
-                continue
+        loss = loss + euclidean_distance(target_coords, marker_position)
+        # print(frame)
+        # print('end loop')
     if overall_avg.item() > 5:
-        total_score = total_score - total_score * (overall_avg - 5.0)
-    return overall_avg,total_score
+        loss = loss + (overall_avg - 5.0)
+
+    return loss
     # def evaluate_linkage(self):
     #     moving_to_target1 = True
     #     initial_target_coords = self.target_coords

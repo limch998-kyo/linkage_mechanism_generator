@@ -40,7 +40,7 @@ for epoch in range(epochs):
 
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
     all_coords = all_coords/100.0
-    target_coords = target_coords/100.0
+    target_coords = target_coords/200.0
 
     coor_val = torch.tensor([1.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0])
     # print(target_adjacency)
@@ -67,8 +67,8 @@ for epoch in range(epochs):
     # print(all_coords)
 
 
-    # if mechanism.check_linkage_valid():
-    if True:
+    if mechanism.check_linkage_valid():
+    # if True:
 
         mechanism = Linkage_mechanism(coor_val.copy(),
                                     all_coords.copy(), 

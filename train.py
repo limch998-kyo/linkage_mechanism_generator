@@ -142,7 +142,10 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         marker_x_position = first_target_coord[0] + target_width * marker_offset
         marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=first_target_coord.device)
 
-
+        crank_lengths_copy = crank_lengths.clone()
+        link_fixeds_copy = link_fixeds.clone()
+        links_length_copy = links_length.clone()
+        
         # First stage
         for i in range(0,4,2):
             if coor_val[i] == 1:
@@ -150,7 +153,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                 crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
                 # print('cranck_end',crank_end)
                 all_coords[i] = crank_end
-                third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_lengths[i//2], status_location, link_fixeds[i//2])
+
+                third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_lengths_copy[i//2], status_location, link_fixeds_copy[i//2])
                 all_coords[i+1] = third_joint
                 # print('third_joint',third_joint)
 
@@ -158,7 +162,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         for i in range(4, 8):
             if coor_val[i] == 1:
                 joint_a, joint_b = stage2_adjacency[i-4]
-                moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+                moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length_copy[i-4][0], all_coords[joint_b], links_length_copy[i-4][1])
                 all_coords[i] = moved_coord
                 # print(all_coords)
 
@@ -167,7 +171,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # print(joint_a,joint_b)
         # print(target_coords)
         # print(links_length)
-        moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+        moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], links_length_copy[-1][0], all_coords[joint_b], links_length_copy[-1][1])
 
         target_coords = moved_coord
 

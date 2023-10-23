@@ -12,8 +12,8 @@ from train import get_loss
 
 input = []
 target_location = [[-5,5.5],[-5,4.5],[5,5.5],[5,4.5]]
-crank_location = [0,0]
-status_location = [1,0]
+crank_location = [-3,0]
+status_location = [3,0]
 
 
 # Convert each list into individual tensors
@@ -39,8 +39,10 @@ epochs = 10000
 for epoch in range(epochs):
 
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
-    all_coords = all_coords/100.0
+    all_coords = all_coords/25.0
     target_coords = target_coords/200.0
+
+    all_coords[:1] = all_coords[:1]/2.0
 
     coor_val = torch.tensor([1.0,1.0,0.0,0.0,1.0,0.0,0.0,0.0])
     # print(target_adjacency)
@@ -80,7 +82,7 @@ for epoch in range(epochs):
                                     target_location.copy()
                                     )
 
-        score = mechanism.evaluate_linkage()
+        # score = mechanism.evaluate_linkage()
 
         loss = get_loss(coor_val_copy, 
                  all_coords_copy, 
@@ -99,8 +101,9 @@ for epoch in range(epochs):
         #     continue
 
         if epoch % 10 == 0:
-            print('epoch: ', epoch, 'loss: ', loss.item(), 'score: ', score)
+            print('epoch: ', epoch, 'loss: ', loss.item())
             if epoch % 100 == 0:
+
                 mechanism = Linkage_mechanism(coor_val.copy(),
                                             all_coords.copy(), 
                                             target_coords.copy(), 
@@ -111,6 +114,8 @@ for epoch in range(epochs):
                                             target_location.copy(),
                                             epoch=epoch
                                             )
+                # print('epoch: ', epoch, 'mechanism invalid')
+
                 mechanism.visualize_linkage()
 
         optimizer.zero_grad()

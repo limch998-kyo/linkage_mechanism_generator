@@ -124,28 +124,42 @@ class Linkage_mechanism():
             marker_x_position = self.target_lower_left[0] + self.target_width * marker_offset
             marker_position = (marker_x_position, self.target_lower_left[1] + self.target_height/2)  
 
+            fail_num = 3
             # First stage
             for i in range(0,4,2):
                 if self.coor_val[i] == 1:
                     crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
                     self.all_coords[i] = crank_end
                     third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])
+                    if third_joint is None:
+                        flag = False
+                        break
                     self.all_coords[i+1] = third_joint
+            if not flag:
+                fail_num = 0
+            else:
 
-
-            # Second stage
-            for i in range(4, 8):
-                if self.coor_val[i] == 1:
-                    joint_a, joint_b = self.stage2_adjacency[i-4]
-                    moved_coord = closest_intersection_point(self.all_coords[i], self.all_coords[joint_a], self.links_length[i-4][0], self.all_coords[joint_b], self.links_length[i-4][1])
-                    self.all_coords[i] = moved_coord
-
-            # Third stage
-            joint_a, joint_b = self.target_adjacency
-            moved_coord = closest_intersection_point(self.target_coords, self.all_coords[joint_a], self.links_length[-1][0], self.all_coords[joint_b], self.links_length[-1][1])
-
-            self.target_coords = moved_coord
-
+                # Second stage
+                for i in range(4, 8):
+                    if self.coor_val[i] == 1:
+                        joint_a, joint_b = self.stage2_adjacency[i-4]
+                        moved_coord = closest_intersection_point(self.all_coords[i], self.all_coords[joint_a], self.links_length[i-4][0], self.all_coords[joint_b], self.links_length[i-4][1])
+                        flag = False
+                    else:
+                        self.all_coords[i] = moved_coord
+                if not flag:
+                    fail_num = 1
+                
+                else:
+                    # Third stage
+                    joint_a, joint_b = self.target_adjacency
+                    moved_coord = closest_intersection_point(self.target_coords, self.all_coords[joint_a], self.links_length[-1][0], self.all_coords[joint_b], self.links_length[-1][1])
+                    if moved_coord is None:
+                        flag = False
+                    else:
+                        self.target_coords = moved_coord
+                    if not flag:
+                        fail_num = 2
             # Append the current target_coords to the trace list
             target_trace.append(tuple(self.target_coords))
 
@@ -160,7 +174,8 @@ class Linkage_mechanism():
                                     target_trace, 
                                     Make_GIF=True, 
                                     frame_num=frame,
-                                    marker_position=marker_position
+                                    marker_position=marker_position,
+                                    fail_num=fail_num
                                     )
 
         frames = []

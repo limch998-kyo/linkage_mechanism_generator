@@ -110,6 +110,7 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
                 crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
                 all_coords[i] = crank_end
                 third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_lengths[i//2], status_location, link_fixeds[i//2])
+                print(third_joint)
                 all_coords[i+1] = third_joint
                 if third_joint is None:
                     return False
@@ -205,7 +206,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                             all_coords.clone(), 
                             stage2_adjacency.clone(), 
                             target_adjacency.clone(), 
-                            frame_num.clone(), 
+                            frame_num, 
                             angles_delta.clone(), 
                             crank_location.clone(), 
                             crank_lengths.clone(), 

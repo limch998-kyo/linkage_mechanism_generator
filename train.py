@@ -23,7 +23,6 @@ def rotate_around_center(coordinates, angle, center):
     rotated_coordinates_back = rotated_coordinates + center
     
     return rotated_coordinates_back
-
 def circle_intercept(P1, r1, P2, r2):
     x1, y1 = P1
     x2, y2 = P2
@@ -31,33 +30,32 @@ def circle_intercept(P1, r1, P2, r2):
     # Distance between the centers
     d = torch.sqrt((x2 - x1)**2 + (y2 - y1)**2)
     
-    # Check for no solution
-    if d > r1 + r2:
-        return None, "Circles are too far apart to intersect."
-    if d < torch.abs(r1 - r2):
-        return None, "One circle is inside the other, without touching."
+    # Calculate indicators for special conditions
+    no_intersection = (d > r1 + r2) | (d < torch.abs(r1 - r2))
+    coincident = (d == 0) & (r1 == r2)
     
-    # Check for coincidence
-    if d == 0 and r1 == r2:
-        return torch.tensor([x1.item(), y1.item()]), "Circles are coincident."
+    # Base calculations for intersection
+    a = (r1**2 - r2**2 + d**2) / (2*d + 1e-10)  # added small constant to prevent division by zero
+    h = torch.sqrt(torch.clamp(r1**2 - a**2, min=0))  # use clamp to prevent negative values
     
-    # Calculate the intersection point(s)
-    a = (r1**2 - r2**2 + d**2) / (2*d)
-    h = torch.sqrt(r1**2 - a**2)
-    
-    x3 = x1 + a * (x2 - x1) / d
-    y3 = y1 + a * (y2 - y1) / d
+    x3 = x1 + a * (x2 - x1) / (d + 1e-10)
+    y3 = y1 + a * (y2 - y1) / (d + 1e-10)
     
     # Two intersection points
-    x4_1 = x3 + h * (y2 - y1) / d
-    y4_1 = y3 - h * (x2 - x1) / d
+    x4_1 = x3 + h * (y2 - y1) / (d + 1e-10)
+    y4_1 = y3 - h * (x2 - x1) / (d + 1e-10)
     
-    x4_2 = x3 - h * (y2 - y1) / d
-    y4_2 = y3 + h * (x2 - x1) / d
+    x4_2 = x3 - h * (y2 - y1) / (d + 1e-10)
+    y4_2 = y3 + h * (x2 - x1) / (d + 1e-10)
     
-    return torch.tensor([x4_1.item(), y4_1.item(), x4_2.item(), y4_2.item()]), None
+    # Apply masks for special conditions
+    x4_1 = torch.where(no_intersection | coincident, torch.tensor(0.), x4_1)
+    y4_1 = torch.where(no_intersection | coincident, torch.tensor(0.), y4_1)
+    x4_2 = torch.where(no_intersection | coincident, torch.tensor(0.), x4_2)
+    y4_2 = torch.where(no_intersection | coincident, torch.tensor(0.), y4_2)
+    
+    return torch.tensor([x4_1, y4_1, x4_2, y4_2]), no_intersection, coincident
 
-import torch
 
 def closest_point(input_coord, potential_coords):
     input_coord_x, input_coord_y = input_coord[0], input_coord[1]
@@ -76,7 +74,7 @@ def closest_point(input_coord, potential_coords):
 
 
 def closest_intersection_point(input_coord, P1, r1, P2, r2):
-    intersections, reason = circle_intercept(P1, r1, P2, r2)
+    intersections, reason, _ = circle_intercept(P1, r1, P2, r2)
     if intersections is not None:
         return closest_point(input_coord, intersections), None
     else:
@@ -132,11 +130,11 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
 def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, frame_num=60):
 
 
-    coor_val = coor_val.clone()
-    all_coords = all_coords.clone()
-    target_coords = target_coords.clone()
-    stage2_adjacency = stage2_adjacency.clone()
-    target_adjacency = target_adjacency.clone()
+    # coor_val = coor_val.d()
+    # all_coords = all_coords.clone()
+    # target_coords = target_coords.clone()
+    # stage2_adjacency = stage2_adjacency.clone()
+    # target_adjacency = target_adjacency.clone()
 
     angles_delta = torch.tensor(2 * torch.pi / frame_num)
 
@@ -164,6 +162,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
     # Second stage
     # 5 rows (4 from the second stage + 1 from the third stage) and 2 columns (for link1 and link2 lengths)
+    # Assuming all_coords, stage2_adjacency, target_coords, and target_adjacency are defined elsewhere
     links_length = torch.zeros(5, 2)
 
     # Second stage
@@ -181,8 +180,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     links_length[4, 0] = output_link1_length
     links_length[4, 1] = output_link2_length
 
-    # Flatten links_length and convert to a tensor
-    links_length_tensor = torch.FloatTensor(links_length.detach().numpy().flatten())
+    # Flatten links_length directly without detaching
+    links_length_tensor = links_length.flatten()
 
     # Concatenate all tensors
     all_lengths = torch.cat([crank_lengths, link_fixeds, links_length_tensor])
@@ -277,13 +276,9 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             target_coords = moved_coord
                 
 
-        # diff = moved_coord - target_coords
-        # target_coords = target_coords + diff
 
-        # print(moved_coord, target_coords, marker_position)
-
-        # print('target_coords',target_coords)
         loss = loss + euclidean_distance(target_coords, marker_position)
+        # loss = F.mse_loss(target_coords, marker_position)
         # print(target_coords, marker_position)
         # loss = loss + F.mse_loss(target_coords, marker_position)
     # loss.backward()
@@ -296,64 +291,3 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     #     loss = loss + (overall_avg - 5.0)
 
     return loss
-    # def evaluate_linkage(self):
-    #     moving_to_target1 = True
-    #     initial_target_coords = self.target_coords
-    #     initial_target_distance = euclidean_distance(initial_target_coords, self.first_target_coord)
-
-
-
-    #     total_score = 0
-
-    #     for _ in range(self.frame_num):
-
-    #         # First stage
-    #         for i in range(0,4,2):
-    #             if self.coor_val[i] == 1:
-    #                 crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
-    #                 self.all_coords[i] = crank_end
-    #                 third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])
-    #                 self.all_coords[i+1] = third_joint
-
-
-    #         # Second stage
-    #         for i in range(4, 8):
-    #             if self.coor_val[i] == 1:
-    #                 joint_a, joint_b = self.stage2_adjacency[i-4]
-    #                 moved_coord = closest_intersection_point(self.all_coords[i], self.all_coords[joint_a], self.links_length[i-4][0], self.all_coords[joint_b], self.links_length[i-4][1])
-    #                 self.all_coords[i] = moved_coord
-
-    #         # Third stage
-    #         joint_a, joint_b = self.target_adjacency
-    #         moved_coord = closest_intersection_point(self.target_coords, self.all_coords[joint_a], self.links_length[-1][0], self.all_coords[joint_b], self.links_length[-1][1])
-
-    #         # print(self.target_coords,self.all_coords[joint_a], self.links_length[-1][0], self.all_coords[joint_b], self.links_length[-1][1])
-    #         self.target_coords = moved_coord
-    #         # print('candi',self.target_coords)
-    #         if moving_to_target1:
-    #             current_target_distance = euclidean_distance(self.target_coords, self.first_target_coord)
-    #             distance_reduced = initial_target_distance - euclidean_distance(self.target_coords, self.first_target_coord)
-    #             total_score += distance_reduced
-    #             initial_target_coords = self.target_coords
-    #             initial_target_distance = current_target_distance
-            
-    #             if euclidean_distance(self.target_coords, self.first_target_coord) < 0.5:
-    #                 initial_target_distance = euclidean_distance(self.target_coords, self.second_target_coord)
-    #                 moving_to_target1 = False
-    #                 continue
-
-    #         if not moving_to_target1:
-    #             current_target_distance = euclidean_distance(self.target_coords, self.second_target_coord)
-    #             distance_reduced = initial_target_distance - euclidean_distance(self.target_coords, self.second_target_coord)
-    #             total_score += distance_reduced
-    #             initial_target_coords = self.target_coords
-    #             initial_target_distance = current_target_distance
-    #             if euclidean_distance(self.target_coords, self.second_target_coord) < 0.5:
-    #                 initial_target_distance = euclidean_distance(self.target_coords, self.first_target_coord)
-    #                 moving_to_target1 = True
-    #                 continue
-    #         # print(self.links_length)
-
-
-
-    #     return total_score

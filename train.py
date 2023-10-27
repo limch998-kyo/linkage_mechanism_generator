@@ -23,62 +23,66 @@ def rotate_around_center(coordinates, angle, center):
     rotated_coordinates_back = rotated_coordinates + center
     
     return rotated_coordinates_back
+
 def circle_intercept(P1, r1, P2, r2):
     x1, y1 = P1
     x2, y2 = P2
     
-    # Distance between the centers
-    d = torch.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    epsilon = 1e-10  # small constant to prevent division by zero
     
-    # Calculate indicators for special conditions
-    no_intersection = (d > r1 + r2) | (d < torch.abs(r1 - r2))
-    coincident = (d == 0) & (r1 == r2)
+    # Distance between the centers
+    d = torch.sqrt((x2 - x1)**2 + (y2 - y1)**2) + epsilon
     
     # Base calculations for intersection
-    a = (r1**2 - r2**2 + d**2) / (2*d + 1e-10)  # added small constant to prevent division by zero
-    h = torch.sqrt(torch.clamp(r1**2 - a**2, min=0))  # use clamp to prevent negative values
+    a = (r1**2 - r2**2 + d**2) / (2 * d)
+    h = torch.sqrt(torch.clamp(r1**2 - a**2, min=0))
     
-    x3 = x1 + a * (x2 - x1) / (d + 1e-10)
-    y3 = y1 + a * (y2 - y1) / (d + 1e-10)
+    x3 = x1 + a * (x2 - x1) / d
+    y3 = y1 + a * (y2 - y1) / d
     
     # Two intersection points
-    x4_1 = x3 + h * (y2 - y1) / (d + 1e-10)
-    y4_1 = y3 - h * (x2 - x1) / (d + 1e-10)
+    x4_1 = x3 + h * (y2 - y1) / d
+    y4_1 = y3 - h * (x2 - x1) / d
     
-    x4_2 = x3 - h * (y2 - y1) / (d + 1e-10)
-    y4_2 = y3 + h * (x2 - x1) / (d + 1e-10)
+    x4_2 = x3 - h * (y2 - y1) / d
+    y4_2 = y3 + h * (x2 - x1) / d
     
-    # Apply masks for special conditions
-    x4_1 = torch.where(no_intersection | coincident, torch.tensor(0.), x4_1)
-    y4_1 = torch.where(no_intersection | coincident, torch.tensor(0.), y4_1)
-    x4_2 = torch.where(no_intersection | coincident, torch.tensor(0.), x4_2)
-    y4_2 = torch.where(no_intersection | coincident, torch.tensor(0.), y4_2)
-    
-    return torch.tensor([x4_1, y4_1, x4_2, y4_2]), no_intersection, coincident
+    return torch.stack([x4_1, y4_1, x4_2, y4_2])
+
 
 
 def closest_point(input_coord, potential_coords):
-    input_coord_x, input_coord_y = input_coord[0], input_coord[1]
+    # Ensure the input tensors have gradient tracking enabled
+    if not input_coord.requires_grad:
+        input_coord.requires_grad_()
+    if not potential_coords.requires_grad:
+        potential_coords.requires_grad_()
+
+    # Split the potential_coords into x and y coordinate arrays
     potential_coords_x = potential_coords[::2]
     potential_coords_y = potential_coords[1::2]
 
-    distances = torch.sqrt((potential_coords_x - input_coord_x)**2 + (potential_coords_y - input_coord_y)**2)
-    index = torch.argmin(distances)
-    
+    # Calculate squared distances, no need to take the square root since we're just looking for the minimum distance
+    distances = (potential_coords_x - input_coord[0])**2 + (potential_coords_y - input_coord[1])**2
+    index = torch.argmin(distances).item()
+
     # Extract the closest point's coordinates
     closest_x = potential_coords_x[index]
     closest_y = potential_coords_y[index]
 
-    # Return the closest point as a PyTorch tensor
-    return torch.tensor([closest_x.item(), closest_y.item()], requires_grad=True)
+    # Combine them into a single tensor
+    closest_coord = torch.stack([closest_x, closest_y])
+
+    return closest_coord
+
 
 
 def closest_intersection_point(input_coord, P1, r1, P2, r2):
-    intersections, reason, _ = circle_intercept(P1, r1, P2, r2)
+    intersections = circle_intercept(P1, r1, P2, r2)
     if intersections is not None:
         return closest_point(input_coord, intersections), None
     else:
-        return None, reason
+        return None
 
 def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, frame_num, angles_delta, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords):
 
@@ -191,7 +195,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
     loss = torch.tensor(0.0)
 
-    loss += overall_avg
+
     for frame in range(frame_num):
         if not check_linkage_valid(coor_val.clone(), 
                             all_coords.clone(), 
@@ -218,7 +222,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # Assuming first_target_coord is a tensor of shape [2], 
         # you need to extract x and y components separately.
         marker_x_position = first_target_coord[0] + target_width * marker_offset
-        marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=first_target_coord.device, requires_grad=True)
+        marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=first_target_coord.device)
+
 
         # crank_lengths_copy = crank_lengths.clone()
         # link_fixeds_copy = link_fixeds.clone()
@@ -272,12 +277,18 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             print('error3')
             return
         else:
-
-            target_coords = moved_coord
+            diff = moved_coord - target_coords
+            target_coords = target_coords + diff
                 
 
-
-        loss = loss + euclidean_distance(target_coords, marker_position)
+        criterion = nn.MSELoss()
+        loss1 = criterion(target_coords, marker_position)
+        loss = loss + loss1
+        # loss = loss + euclidean_distance(target_coords, marker_position)
+        # loss = criterion(target_coords, marker_position)
+    # print(target_coords, marker_position)
+        # print(euclidean_distance(target_coords, marker_position))
+        # print(loss)
         # loss = F.mse_loss(target_coords, marker_position)
         # print(target_coords, marker_position)
         # loss = loss + F.mse_loss(target_coords, marker_position)
@@ -287,7 +298,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # print(frame)
         # print('end loop')
     # print('loss',loss)
-    # if overall_avg.item() > 5:
-    #     loss = loss + (overall_avg - 5.0)
+    # if overall_avg.item() < 5:
+    #     loss = loss - (overall_avg)
 
     return loss

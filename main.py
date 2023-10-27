@@ -12,8 +12,8 @@ from train import get_loss
 
 input = []
 target_location = [[-5,5.5],[-5,4.5],[5,5.5],[5,4.5]]
-crank_location = [-3,0]
-status_location = [3,0]
+crank_location = [-2,0]
+status_location = [2,0]
 
 
 # Convert each list into individual tensors
@@ -32,17 +32,21 @@ input_tensor = torch.tensor([input], dtype=torch.float)
 
 
 net = CombinedNetwork()
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
 # env = LinkageEnvironment(input_tensor)
 epochs = 10000
 
 for epoch in range(epochs):
 
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
-    all_coords = all_coords*2.0 + 1.0
-    target_coords = target_coords*2.0
-
-    all_coords[0] = torch.tensor([-3.0,1.0])
+    all_coords = all_coords*5.0
+    # target_coords = target_coords*10.0
+    # print(all_coords)
+    # all_coords[0] = torch.tensor([-2.0,2.0])
+    all_coords[0] = torch.tensor([-2.0,2.0])
+    all_coords[1] = torch.tensor([2.0,4.0])
+    target_coords = torch.tensor([0.0, 3.0])
+    stage2_adjacency = torch.tensor([[0,1],[0,0],[0,0],[0,0]])
     # print(all_coords[0])
 
     # all_coords[:1] = all_coords[:1]/2.0

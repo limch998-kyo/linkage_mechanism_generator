@@ -82,7 +82,7 @@ def closest_intersection_point(input_coord, P1, r1, P2, r2):
     else:
         return None, reason
 
-def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, frame_num, angles_delta, crank_location, crank_lengths, status_location, link_fixeds, links_length, target_coords):
+def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, frame_num, angles_delta, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords):
 
     coor_val = torch.tensor(coor_val)
     all_coords = torch.tensor(all_coords)
@@ -103,33 +103,29 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
     if coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
         return False
 
-    for _ in range(frame_num):
-        # First stage
-        for i in range(0, 4, 2):
-            if coor_val[i] == 1:
-                crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
-                all_coords[i] = crank_end
-                third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_lengths[i//2], status_location, link_fixeds[i//2])
-                print(third_joint)
-                all_coords[i+1] = third_joint
-                if third_joint is None:
-                    return False
-
-        # Second stage
-        for i in range(4, 8):
-            if coor_val[i] == 1:
-                joint_a, joint_b = stage2_adjacency[i-4]
-                moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
-                all_coords[i] = moved_coord
-                if moved_coord is None:
-                    return False
-
-        # Third stage
-        joint_a, joint_b = target_adjacency
-        moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
-        if moved_coord is None:
-            return False
-        target_coords = moved_coord
+    # First stage
+    for i in range(0, 4, 2):
+        if coor_val[i] == 1:
+            crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
+            all_coords[i] = crank_end
+            third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
+            if third_joint is None:
+                return False
+            all_coords[i+1] = third_joint
+    # Second stage
+    for i in range(4, 8):
+        if coor_val[i] == 1:
+            joint_a, joint_b = stage2_adjacency[i-4]
+            moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+            if moved_coord is None:
+                return False
+            all_coords[i] = moved_coord
+    # Third stage
+    joint_a, joint_b = target_adjacency
+    moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+    if moved_coord is None:
+        return False
+    target_coords = moved_coord
 
     return True
 
@@ -142,9 +138,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     stage2_adjacency = stage2_adjacency.clone()
     target_adjacency = target_adjacency.clone()
 
-
-
-    angles_delta = torch.tensor(2 * torch.pi / 60)
+    angles_delta = torch.tensor(2 * torch.pi / frame_num)
 
     first_target_coord = (target_location[0] + target_location[1]) / 2
     second_target_coord = (target_location[2] + target_location[3]) /2
@@ -159,6 +153,10 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     crank_length = euclidean_distance(crank_location, all_coords[0])
     crank_length2 = euclidean_distance(crank_location, all_coords[2])
     crank_lengths = torch.stack([crank_length, crank_length2])
+
+    crank_to_revolution = euclidean_distance(all_coords[0], all_coords[1])
+    crank_to_revolution2 = euclidean_distance(all_coords[2], all_coords[3])
+    crank_to_revolutions = torch.stack([crank_to_revolution, crank_to_revolution2])
 
     link_fixed = euclidean_distance(all_coords[1], status_location)
     link_fixed2 = euclidean_distance(all_coords[3], status_location)
@@ -192,16 +190,10 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     # Compute the average
     overall_avg = torch.mean(all_lengths)
 
-    # print("Average of all lengths:", overall_avg.item())
-
-
     loss = torch.tensor(0.0)
-    # print(all_coords)
 
     loss += overall_avg
-
     for frame in range(frame_num):
-
         if not check_linkage_valid(coor_val.clone(), 
                             all_coords.clone(), 
                             stage2_adjacency.clone(), 
@@ -209,13 +201,15 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                             frame_num, 
                             angles_delta.clone(), 
                             crank_location.clone(), 
-                            crank_lengths.clone(), 
+                            crank_to_revolutions.clone(), 
                             status_location.clone(), 
                             link_fixeds.clone(), 
                             links_length.clone(), 
                             target_coords.clone()
                             ):
             angles_delta = angles_delta * (-1.0)
+
+            # print('angle changing')
 
 # Assuming all variables are tensors.
         t = frame / frame_num # Ensure division is floating point.
@@ -227,10 +221,10 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         marker_x_position = first_target_coord[0] + target_width * marker_offset
         marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=first_target_coord.device, requires_grad=True)
 
-        crank_lengths_copy = crank_lengths.clone()
-        link_fixeds_copy = link_fixeds.clone()
-        links_length_copy = links_length.clone()
-        
+        # crank_lengths_copy = crank_lengths.clone()
+        # link_fixeds_copy = link_fixeds.clone()
+        # links_length_copy = links_length.clone()
+
         # First stage
         # print('loop1')
         for i in range(0,4,2):
@@ -239,33 +233,13 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                 crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
                 # print('cranck_end',crank_end)
                 all_coords[i] = crank_end
-                original_point1 = all_coords[i+1].clone()
-                crank_length = crank_lengths_copy[i//2]
-                link_fixed = link_fixeds_copy[i//2]
-                while True:
-                    third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_length, status_location, link_fixed)
-                    if third_joint is None:
-                        if reason == "Circles are too far apart to intersect.":
-                            crank_length += 0.1
-                            link_fixed += 0.1
-                        elif reason == "One circle is inside the other, without touching.":
-                            if crank_length > link_fixed:
-                                link_fixed += 0.1
-                            elif crank_length < link_fixed:
-                                crank_length += 0.1
-                            else:
-                                print('error')
-                        else:
-                            print('error')
-                    else:
-                        loss1 = euclidean_distance(third_joint, all_coords[i+1])
-                        loss = loss + loss1
-                        all_coords[i+1] = third_joint
-                        crank_lengths_copy[i//2] = crank_length
-                        link_fixeds_copy[i//2] = link_fixed
-                        
-
-                        break
+                third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
+                if third_joint is None:
+                    print('error1')
+                    return
+                else:
+                    all_coords[i+1] = third_joint
+                    
                 # print('third_joint',third_joint)
 
         # Second stage
@@ -273,31 +247,17 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         for i in range(4, 8):
             if coor_val[i] == 1:
                 joint_a, joint_b = stage2_adjacency[i-4]
-                link1_length = links_length_copy[i-4][0]
-                link2_length = links_length_copy[i-4][1]
-                while True:
-                    moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], link1_length, all_coords[joint_b], link2_length)
-                    # print(moved_coord, reason)
-                    if moved_coord is None:
-                        if reason == "Circles are too far apart to intersect.":
-                            link1_length += 0.1
-                            link2_length += 0.1
-                        elif reason == "One circle is inside the other, without touching.":
-                            if link1_length > link2_length:
-                                link2_length += 0.1
-                            elif link1_length < link2_length:
-                                link1_length += 0.1
-                            else:
-                                print('error')
-                        else:
-                            print('error')
-                    else:
-                        loss2 = euclidean_distance(moved_coord, all_coords[i])
-                        # loss = loss + loss2
-                        all_coords[i] = moved_coord
-                        links_length_copy[i-4][0] = link1_length
-                        links_length_copy[i-4][1] = link2_length
-                        break
+                moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+                # print(moved_coord, reason)
+                if moved_coord is None:
+                    print(joint_a)
+                    print(joint_b)
+                    print(all_coords[i],all_coords[joint_a],link1_length, all_coords[joint_b],link2_length)
+                    print('error2')
+                    return
+                else:
+                    all_coords[i] = moved_coord
+                        
                 # print(all_coords)
         # print('loop3')
         # Third stage
@@ -305,32 +265,17 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # print(joint_a,joint_b)
         # print(target_coords)
         # print(links_length)
-        link1_length = links_length_copy[-1][0]
-        link2_length = links_length_copy[-1][1]
-        while True:
 
-            moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], link1_length, all_coords[joint_b], link2_length)
-            # print(moved_coord, reason, all_coords[joint_a], all_coords[joint_b])
-            if moved_coord is None:
-                if reason == "Circles are too far apart to intersect.":
-                    link1_length += 0.1
-                    link2_length += 0.1
-                elif reason == "One circle is inside the other, without touching.":
-                    if link1_length > link2_length:
-                        link2_length += 0.1
-                    elif link1_length < link2_length:
-                        link1_length += 0.1
-                    else:
-                        print('error')
-                else:
-                    print('error')
-            else:
-                loss3 = euclidean_distance(moved_coord, target_coords)
-                # loss = loss + loss3
-                target_coords = moved_coord
-                links_length_copy[-1][0] = link1_length
-                links_length_copy[-1][1] = link2_length
-                break
+
+        moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+        # print(moved_coord, reason, all_coords[joint_a], all_coords[joint_b])
+        if moved_coord is None:
+            print('error3')
+            return
+        else:
+
+            target_coords = moved_coord
+                
 
         # diff = moved_coord - target_coords
         # target_coords = target_coords + diff
@@ -338,7 +283,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # print(moved_coord, target_coords, marker_position)
 
         # print('target_coords',target_coords)
-        # loss = loss + euclidean_distance(target_coords, marker_position)
+        loss = loss + euclidean_distance(target_coords, marker_position)
         # print(target_coords, marker_position)
         # loss = loss + F.mse_loss(target_coords, marker_position)
     # loss.backward()

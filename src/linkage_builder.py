@@ -39,6 +39,10 @@ class Linkage_mechanism():
         self.crank_length2 = euclidean_distance(self.crank_location, self.all_coords[2])
         self.crank_lengths = [self.crank_length, self.crank_length2]
 
+        self.crank_to_revolution = euclidean_distance(self.all_coords[0], self.all_coords[1])
+        self.crank_to_revolution2 = euclidean_distance(self.all_coords[2], self.all_coords[3])
+        self.crank_to_revolutions = [self.crank_to_revolution, self.crank_to_revolution2]
+
         self.link_fixed = euclidean_distance(self.all_coords[1], self.status_location)
         self.link_fixed2 = euclidean_distance(self.all_coords[3], self.status_location)
         self.link_fixeds = [self.link_fixed, self.link_fixed2]
@@ -65,7 +69,7 @@ class Linkage_mechanism():
         # Compute the average
         self.overall_avg = np.mean(self.all_lengths)
 
-    def check_linkage_valid(self, coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, crank_lengths,link_fixeds, links_length,status_location, frame_num, angles_delta):
+    def check_linkage_valid(self, coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, crank_to_revolutions,link_fixeds, links_length,status_location, frame_num, angles_delta):
 
         if np.all(coor_val[:4] == 0):
             return False
@@ -85,33 +89,34 @@ class Linkage_mechanism():
             return False
 
 
-        for _ in range(frame_num):
-            # First stage
-            for i in range(0,4,2):
-                if coor_val[i] == 1:
-                    crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
-                    all_coords[i] = crank_end
-                    third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_lengths[i//2], status_location, link_fixeds[i//2])
-                    all_coords[i+1] = third_joint
-                    if third_joint is None:
-                        return False
 
+        # First stage
+        for i in range(0,4,2):
+            if coor_val[i] == 1:
+                crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
+                all_coords[i] = crank_end
+                third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
 
-            # Second stage
-            for i in range(4, 8):
-                if coor_val[i] == 1:
-                    joint_a, joint_b = stage2_adjacency[i-4]
-                    moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
-                    all_coords[i] = moved_coord
-                    if moved_coord is None:
-                        return False
+                if third_joint is None:
+                    return False
+                all_coords[i+1] = third_joint
 
-            # Third stage
-            joint_a, joint_b = target_adjacency
-            moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
-            if moved_coord is None:
-                return False
-            target_coords = moved_coord
+        # Second stage
+        for i in range(4, 8):
+            if coor_val[i] == 1:
+                joint_a, joint_b = stage2_adjacency[i-4]
+                moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+                if moved_coord is None:
+                    return False
+                all_coords[i] = moved_coord
+
+        # Third stage
+        joint_a, joint_b = target_adjacency
+        moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+        if moved_coord is None:
+            return False
+        target_coords = moved_coord
+
         return True
     
 
@@ -119,16 +124,14 @@ class Linkage_mechanism():
         target_trace = []  # Store the trace of the target_coords
 
         for frame in range(self.frame_num):
-            print(self.stage2_adjacency)
 
-            print
             if not self.check_linkage_valid(self.coor_val.copy(), 
                                     self.stage2_adjacency.copy(), 
                                     self.all_coords.copy(), 
                                     self.target_adjacency.copy(), 
                                     self.target_coords, 
                                     self.crank_location.copy(), 
-                                    self.crank_lengths.copy(),
+                                    self.crank_to_revolutions.copy(),
                                     self.link_fixeds.copy(), 
                                     self.links_length.copy(),
                                     self.status_location.copy(), 
@@ -148,7 +151,7 @@ class Linkage_mechanism():
                 if self.coor_val[i] == 1:
                     crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
                     self.all_coords[i] = crank_end
-                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])
+                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_to_revolutions[i//2], self.status_location, self.link_fixeds[i//2])
                     self.all_coords[i+1] = third_joint
 
 

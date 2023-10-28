@@ -39,6 +39,10 @@ class Linkage_mechanism():
         self.crank_length2 = euclidean_distance(self.crank_location, self.all_coords[2])
         self.crank_lengths = [self.crank_length, self.crank_length2]
 
+        self.crank_to_revolution = euclidean_distance(self.all_coords[0], self.all_coords[1])
+        self.crank_to_revolution2 = euclidean_distance(self.all_coords[2], self.all_coords[3])
+        self.crank_to_revolutions = [self.crank_to_revolution, self.crank_to_revolution2]
+
         self.link_fixed = euclidean_distance(self.all_coords[1], self.status_location)
         self.link_fixed2 = euclidean_distance(self.all_coords[3], self.status_location)
         self.link_fixeds = [self.link_fixed, self.link_fixed2]
@@ -65,65 +69,89 @@ class Linkage_mechanism():
         # Compute the average
         self.overall_avg = np.mean(self.all_lengths)
 
-    def check_linkage_valid(self):
+    def check_linkage_valid(self, coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, crank_to_revolutions,link_fixeds, links_length,status_location, frame_num, angles_delta):
 
-        if np.all(self.coor_val[:4] == 0):
+        if np.all(coor_val[:4] == 0):
             return False
-        elif np.all(self.coor_val[-4:] == 0):
+        elif np.all(coor_val[-4:] == 0):
             return False
 
         for i in range(4, 8):
-            joint_a, joint_b = self.stage2_adjacency[i-4]
+            joint_a, joint_b = stage2_adjacency[i-4]
             if self.coor_val[i]==0:
                 continue
-            elif self.coor_val[joint_a] == 0 or self.coor_val[joint_b] == 0:
+            elif coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
                 return False
 
 
-        joint_a, joint_b = self.target_adjacency
-        if self.coor_val[joint_a] == 0 or self.coor_val[joint_b] == 0:
+        joint_a, joint_b = target_adjacency
+        if coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
             return False
 
-        for _ in range(self.frame_num):
-            # First stage
-            for i in range(0,4,2):
-                if self.coor_val[i] == 1:
-                    crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
-                    self.all_coords[i] = crank_end
-                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])
-                    self.all_coords[i+1] = third_joint
-                    if third_joint is None:
-                        return False
 
 
-            # Second stage
-            for i in range(4, 8):
-                if self.coor_val[i] == 1:
-                    joint_a, joint_b = self.stage2_adjacency[i-4]
-                    moved_coord = closest_intersection_point(self.all_coords[i], self.all_coords[joint_a], self.links_length[i-4][0], self.all_coords[joint_b], self.links_length[i-4][1])
-                    self.all_coords[i] = moved_coord
-                    if moved_coord is None:
-                        return False
+        # First stage
+        for i in range(0,4,2):
+            if coor_val[i] == 1:
+                crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
+                all_coords[i] = crank_end
+                third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
 
-            # Third stage
-            joint_a, joint_b = self.target_adjacency
-            moved_coord = closest_intersection_point(self.target_coords, self.all_coords[joint_a], self.links_length[-1][0], self.all_coords[joint_b], self.links_length[-1][1])
-            if moved_coord is None:
-                return False
-            target_coords = moved_coord
+                if third_joint is None:
+                    return False
+                all_coords[i+1] = third_joint
+
+        # Second stage
+        for i in range(4, 8):
+            if coor_val[i] == 1:
+                joint_a, joint_b = stage2_adjacency[i-4]
+                moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+                if moved_coord is None:
+                    return False
+                all_coords[i] = moved_coord
+
+        # Third stage
+        joint_a, joint_b = target_adjacency
+        moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+        if moved_coord is None:
+            return False
+        target_coords = moved_coord
+
         return True
     
+
     def visualize_linkage(self):
         target_trace = []  # Store the trace of the target_coords
 
         for frame in range(self.frame_num):
 
+            if not self.check_linkage_valid(self.coor_val.copy(), 
+                                    self.stage2_adjacency.copy(), 
+                                    self.all_coords.copy(), 
+                                    self.target_adjacency.copy(), 
+                                    self.target_coords, 
+                                    self.crank_location.copy(), 
+                                    self.crank_to_revolutions.copy(),
+                                    self.link_fixeds.copy(), 
+                                    self.links_length.copy(),
+                                    self.status_location.copy(), 
+                                    self.frame_num,
+                                    self.angles_delta
+                                    ):
+                self.angles_delta = -self.angles_delta
+
+            t = frame / self.frame_num  # t varies from 0 to 1
+            marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))  # This will vary between 0 and 1 in a back-and-forth manner due to the cosine function
+
+            marker_x_position = self.target_lower_left[0] + self.target_width * marker_offset
+            marker_position = (marker_x_position, self.target_lower_left[1] + self.target_height/2)  
+
             # First stage
             for i in range(0,4,2):
                 if self.coor_val[i] == 1:
                     crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
                     self.all_coords[i] = crank_end
-                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])
+                    third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_to_revolutions[i//2], self.status_location, self.link_fixeds[i//2])
                     self.all_coords[i+1] = third_joint
 
 
@@ -144,17 +172,18 @@ class Linkage_mechanism():
             target_trace.append(tuple(self.target_coords))
 
             visualize_linkage_system(self.coor_val, 
-                                     self.stage2_adjacency, 
-                                     self.all_coords, 
-                                     self.target_adjacency, 
-                                     self.target_coords, 
-                                     self.crank_location, 
-                                     self.status_location,
-                                     self.target_location_info, 
-                                     target_trace, 
-                                     Make_GIF=True, 
-                                     frame_num=frame
-                                     )
+                                    self.stage2_adjacency, 
+                                    self.all_coords, 
+                                    self.target_adjacency, 
+                                    self.target_coords, 
+                                    self.crank_location, 
+                                    self.status_location,
+                                    self.target_location_info, 
+                                    target_trace, 
+                                    Make_GIF=True, 
+                                    frame_num=frame,
+                                    marker_position=marker_position
+                                    )
 
         frames = []
         current_directory = os.getcwd()
@@ -165,19 +194,28 @@ class Linkage_mechanism():
         imageio.mimsave(f'{current_directory}/learn_process/mechanism_{self.epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
         print("mechanism gif saved")
 
+
+
     def evaluate_linkage(self):
-        moving_to_target1 = True
-        initial_target_coords = self.target_coords
-        initial_target_distance = euclidean_distance(initial_target_coords, self.first_target_coord)
+        # moving_to_target1 = True
+        # initial_target_coords = self.target_coords
+        # initial_target_distance = euclidean_distance(initial_target_coords, self.first_target_coord)
 
 
         # Calculating averages
         # print(self.overall_avg)
 
-        total_score = 5.0
+        loss = 0.0
         # print(self.all_coords)
 
-        for _ in range(self.frame_num):
+        for frame in range(self.frame_num):
+
+
+            t = frame / self.frame_num  # t varies from 0 to 1
+            marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))  # This will vary between 0 and 1 in a back-and-forth manner due to the cosine function
+
+            marker_x_position = self.target_lower_left[0] + self.target_width * marker_offset
+            marker_position = (marker_x_position, self.target_lower_left[1] + self.target_height/2)  
 
             # First stage
             for i in range(0,4,2):
@@ -208,33 +246,12 @@ class Linkage_mechanism():
             # print(self.links_length)
             # print(self.target_coords,self.all_coords[joint_a], self.links_length[-1][0], self.all_coords[joint_b], self.links_length[-1][1])
             self.target_coords = moved_coord
-            if moving_to_target1:
-                current_target_distance = euclidean_distance(self.target_coords, self.first_target_coord)
-                distance_reduced = initial_target_distance - euclidean_distance(self.target_coords, self.first_target_coord)
-                total_score += distance_reduced
-                initial_target_coords = self.target_coords
-                initial_target_distance = current_target_distance
 
-                if euclidean_distance(self.target_coords, self.first_target_coord) < 0.5:
-                    initial_target_distance = euclidean_distance(self.target_coords, self.second_target_coord)
-                    moving_to_target1 = False
-                    total_score += 1.0
-                    continue
-
-            if not moving_to_target1:
-                current_target_distance = euclidean_distance(self.target_coords, self.second_target_coord)
-                distance_reduced = initial_target_distance - euclidean_distance(self.target_coords, self.second_target_coord)
-                total_score += distance_reduced
-                initial_target_coords = self.target_coords
-                initial_target_distance = current_target_distance
-                if euclidean_distance(self.target_coords, self.second_target_coord) < 0.5:
-                    initial_target_distance = euclidean_distance(self.target_coords, self.first_target_coord)
-                    moving_to_target1 = True
-                    total_score += 1.0
-                    continue
+            loss = loss + euclidean_distance(self.target_coords, marker_position)
             # print(self.links_length)
 
-
         if self.overall_avg > 5:
-            total_score = total_score - total_score * (self.overall_avg - 5.0)
-        return total_score
+            loss = np.sqrt(loss + (self.overall_avg - 5.0))
+        else:
+            loss = np.sqrt(loss)
+        return loss

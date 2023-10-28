@@ -7,6 +7,8 @@ from src.linkage_builder import Linkage_mechanism
 from train import get_loss
 
 
+from torch.optim.lr_scheduler import ExponentialLR
+
 
 
 
@@ -32,14 +34,16 @@ input_tensor = torch.tensor([input], dtype=torch.float)
 
 
 net = CombinedNetwork()
-optimizer = torch.optim.Adam(net.parameters(), lr=0.001)
+
+optimizer = torch.optim.Adam(net.parameters(), lr=0.01)
+scheduler = ExponentialLR(optimizer, gamma=1.00)
 # env = LinkageEnvironment(input_tensor)
 epochs = 10000
 
 for epoch in range(epochs):
 
     coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
-    all_coords = all_coords*2.0
+    all_coords = all_coords*5.0
     target_coords = target_coords*5.0
     # print(all_coords)
     # all_coords[0] = torch.tensor([-2.0,2.0])
@@ -98,6 +102,9 @@ for epoch in range(epochs):
 
         optimizer.step()
 
+        scheduler.step()
+
+
         # if overall_avg.item() > 10.0:
         #     if epoch % 10 == 0:
         #         print('epoch: ', epoch, 'mechanism invalid')
@@ -107,20 +114,23 @@ for epoch in range(epochs):
 
         if epoch % 10 == 0:
             print('epoch: ', epoch, 'loss: ', loss.item())
-            if epoch % 20 == 0:
-                coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords)
-                mechanism = Linkage_mechanism(coor_val.copy(),
-                                            all_coords.copy(), 
-                                            target_coords.copy(), 
-                                            stage2_adjacency.copy(), 
-                                            target_adjacency.copy(), 
-                                            crank_location.copy(), 
-                                            status_location.copy(),
-                                            target_location.copy(),
-                                            epoch=epoch
-                                            )
+            if epoch % 100 == 0:
+                    # for param_group in optimizer.param_groups:
+                    #     print(param_group['lr'])
+                # if loss.item() < 50:
+                    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords)
+                    mechanism = Linkage_mechanism(coor_val.copy(),
+                                                all_coords.copy(), 
+                                                target_coords.copy(), 
+                                                stage2_adjacency.copy(), 
+                                                target_adjacency.copy(), 
+                                                crank_location.copy(), 
+                                                status_location.copy(),
+                                                target_location.copy(),
+                                                epoch=epoch
+                                                )
 
-                mechanism.visualize_linkage()
+                    mechanism.visualize_linkage()
                 
                 # print('epoch: ', epoch, 'mechanism invalid')
 

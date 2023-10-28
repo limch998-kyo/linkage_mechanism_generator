@@ -298,7 +298,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # print(frame)
         # print('end loop')
     # print('loss',loss)
-    # if overall_avg.item() < 5:
-    #     loss = loss - (overall_avg)
+    if overall_avg.item() > 5:
+        loss = loss + (overall_avg-5.0)*10.0
 
     return loss

@@ -1,7 +1,7 @@
 import numpy as np
 import imageio
 import os
-from geometry import rotate_around_center, closest_intersection_point, euclidean_distance
+from src.geometry import rotate_around_center, closest_intersection_point, euclidean_distance
 from visiualizer import visualize_linkage_system
 
 

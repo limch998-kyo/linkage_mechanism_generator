@@ -174,14 +174,15 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             print('error3')
             return
         else:
-            diff = moved_coord - target_coords
-            target_coords = target_coords + diff
+            # diff = moved_coord - target_coords
+            # target_coords = target_coords + diff
+            target_coords = moved_coord
                 
 
         criterion = nn.MSELoss()
         loss1 = criterion(target_coords, marker_position)
         loss = loss + loss1
-        # loss = loss + euclidean_distance(target_coords, marker_position)
+
 
     if overall_avg.item() > 5:
         loss = loss + (overall_avg-5.0)*10.0

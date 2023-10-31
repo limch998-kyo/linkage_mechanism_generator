@@ -35,6 +35,11 @@ def circle_intercept(P1, r1, P2, r2):
     a = (r1**2 - r2**2 + d**2) / (2 * d)
     h = torch.sqrt(torch.clamp(r1**2 - a**2, min=0))
     
+    if torch.isnan(h):
+        print("NaN detected in h!")
+        print(r1, a)
+
+
     x3 = x1 + a * (x2 - x1) / d
     y3 = y1 + a * (y2 - y1) / d
     
@@ -80,4 +85,5 @@ def closest_intersection_point(input_coord, P1, r1, P2, r2):
     if intersections is not None:
         return closest_point(input_coord, intersections), None
     else:
+        print('error')
         return None

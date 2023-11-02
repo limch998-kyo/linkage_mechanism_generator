@@ -29,17 +29,18 @@ def circle_intercept(P1, r1, P2, r2):
     epsilon = 1e-10  # small constant to prevent division by zero
     
     # Distance between the centers
-    d = torch.sqrt((x2 - x1)**2 + (y2 - y1)**2) + epsilon
+    d = torch.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    
+    # Check if circles do not intersect
+    # 1. One circle is contained within the other without touching
+    # 2. The circles are too far apart to touch
+    if d > r1 + r2 + epsilon or d < abs(r1 - r2) - epsilon:
+        return None
     
     # Base calculations for intersection
     a = (r1**2 - r2**2 + d**2) / (2 * d)
     h = torch.sqrt(torch.clamp(r1**2 - a**2, min=0))
     
-    if torch.isnan(h):
-        print("NaN detected in h!")
-        print(r1, a)
-
-
     x3 = x1 + a * (x2 - x1) / d
     y3 = y1 + a * (y2 - y1) / d
     
@@ -51,6 +52,7 @@ def circle_intercept(P1, r1, P2, r2):
     y4_2 = y3 + h * (x2 - x1) / d
     
     return torch.stack([x4_1, y4_1, x4_2, y4_2])
+
 
 
 
@@ -83,7 +85,6 @@ def closest_point(input_coord, potential_coords):
 def closest_intersection_point(input_coord, P1, r1, P2, r2):
     intersections = circle_intercept(P1, r1, P2, r2)
     if intersections is not None:
-        return closest_point(input_coord, intersections), None
+        return closest_point(input_coord, intersections)
     else:
-        print('error')
         return None

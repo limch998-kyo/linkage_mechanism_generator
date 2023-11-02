@@ -2,14 +2,15 @@ from matplotlib import pyplot as plt
 import math
 import numpy as np
 
-def output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords):
+def output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_direction):
     coor_val = coor_val.detach().numpy()
     stage2_adjacency = stage2_adjacency.detach().numpy()
     all_coords = all_coords.detach().numpy()
     target_adjacency = target_adjacency.detach().numpy()
     target_coords = target_coords.detach().numpy()
+    rotation_direction = rotation_direction.detach().numpy()
 
-    return coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords
+    return coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_direction
 
 def share_adjoining_point(adj_matrix, fixed_point_1, fixed_point_2):
     for node in range(adj_matrix.shape[0]):

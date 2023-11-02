@@ -22,14 +22,28 @@ class CombinedNetwork(nn.Module):
         self.fc6_indices = nn.Linear(128, 8)
         self.fc6_coords = nn.Linear(128, 2) 
 
+        # Define the fully connected rotation layer with an input size of 36
+        self.fc_rotation = nn.Linear(36, 60)
+    def custom_sign(self,input, threshold=0.1):
+        # Values within [-threshold, threshold] are mapped to 0
+        input[input.abs() < threshold] = 0
+        return input.sign()
+
+    def check_for_nan(self, tensor, name):
+        if torch.isnan(tensor).any():
+            print(f"NaN detected in {name}")
+
     def forward(self, x):
         # First stage
         x1 = x.view(x.size(0), -1)
         x1 = F.relu(self.fc1(x1))
         
         out1_binary = torch.round(torch.sigmoid(self.fc2_binary(x1)))
+        self.check_for_nan(out1_binary, "out1_binary")
+
         out1_coords = self.fc2_coords(x1)
         out1_coords = torch.reshape(out1_coords, (-1, 4, 2))
+        self.check_for_nan(out1_coords, "out1_coords")
 
         # Second stage
         x2 = torch.cat((out1_binary, out1_coords.view(out1_coords.size(0), -1)), dim=1)
@@ -67,16 +81,49 @@ class CombinedNetwork(nn.Module):
         
         out3_coords = self.fc6_coords(x3)
 
-        return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0]
+        # Flatten and concatenate the tensors
+        flattened_coor_val = final_binary_input.view(-1)
+        flattened_stage2_adjacency = out2_adjacency.view(-1)
+        flattened_all_coords = output_coords.view(-1)
+        flattened_target_adjacency = out3_adjacency.view(-1)
+        flattened_target_coords = out3_coords.view(-1)
+        
+        concatenated_features = torch.cat((
+            flattened_coor_val,
+            flattened_stage2_adjacency,
+            flattened_all_coords,
+            flattened_target_adjacency,
+            flattened_target_coords
+        ), dim=0)
+        
+        # Pass the concatenated tensor through the fc_rotation layer
+        rotation_logits = self.fc_rotation(concatenated_features)
+        
+        # Apply tanh activation to map values between -1 and 1
+        rotation_tanh = torch.tanh(rotation_logits)
+        
+        # Map the values to -1, 0, or 1 with a custom threshold
+        rotation_directions = self.custom_sign(rotation_tanh, threshold=0.1)
+
+        # Before returning the final values, add checks for NaNs
+        self.check_for_nan(final_binary_input, "final_binary_input")
+        self.check_for_nan(out2_adjacency, "out2_adjacency")
+        self.check_for_nan(output_coords, "output_coords")
+        self.check_for_nan(out3_adjacency, "out3_adjacency")
+        self.check_for_nan(out3_coords, "out3_coords")
+        self.check_for_nan(rotation_directions, "rotation_directions")
+
+        return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0], rotation_directions
     
 if __name__ == '__main__':
     # Test
     net = CombinedNetwork()
     sample_input = torch.rand((1, 6, 2))
-    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(sample_input)
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_directions = net(sample_input)
 
     print(coor_val)
     print(stage2_adjacency)
     print(all_coords)
     print(target_adjacency)
     print(target_coords)
+    print(rotation_directions)

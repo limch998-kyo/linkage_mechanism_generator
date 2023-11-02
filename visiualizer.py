@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_location_info, target_trace=[], Make_GIF=False, frame_num=0, marker_position=None, fail_num=3):
+def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_location_info, target_trace=[], rotation_direction=[] ,Make_GIF=False, frame_num=0, marker_position=None, fail_num=3):
 
 
     # Create a new figure and axis
@@ -18,6 +18,11 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
 
     # Define colors for each stage
     colors = ['r', 'g', 'b']
+    rotation_colors = {1: 'green', -1: 'red', 0: 'yellow'}
+
+    # Set the crank color based on the rotation direction
+    crank_color = rotation_colors[rotation_direction]
+
     if fail_num >0:
     # Stage 1
         if coor_val[0] == 1:  # Link exists for the first set
@@ -50,12 +55,13 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
     for idx, (x, y) in enumerate(all_coords):
         if coor_val[idx] == 1:
             ax.scatter(x, y, c='black')
-    ax.scatter(crank_location[0], crank_location[1], c='orange', marker='o')  # Crank location
+
+    ax.scatter(crank_location[0], crank_location[1], c=crank_color, marker='o')  # Crank location with color based on rotation direction
     ax.scatter(status_location[0], status_location[1], c='orange', marker='o')  # Status location
     ax.scatter(target_coords[0], target_coords[1], c='blue', marker='o')  # Target location
 
-    if marker_position:
-        ax.scatter(marker_position[0], marker_position[1], c='purple', marker='o', s=50)  # Change color, marker, and size as per your needs
+    # if marker_position:
+    ax.scatter(marker_position[0], marker_position[1], c='purple', marker='o', s=50)  # Change color, marker, and size as per your needs
 
     # Draw the given target locations rectangle
 

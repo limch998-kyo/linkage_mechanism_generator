@@ -7,7 +7,7 @@ from visiualizer import visualize_linkage_system
 
 
 class Linkage_mechanism():
-    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, target_location,epoch = 0,frame_num=60, angles_delta=2*np.pi/60):
+    def __init__(self, coor_val, all_coords,target_coords,stage2_adjacency, target_adjacency, crank_location, status_location, target_location,rotation_direction, epoch = 0,frame_num=60, rotation_speed=2*np.pi/60):
         # visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location)
         self.coor_val = coor_val
         self.all_coords = all_coords
@@ -20,7 +20,8 @@ class Linkage_mechanism():
 
         self.epoch = epoch
         self.frame_num = frame_num
-        self.angles_delta = angles_delta
+        self.rotation_speed = rotation_speed
+        self.rotation_direction = rotation_direction
 
         self.sorted_target_locations = sorted(target_location, key=lambda k: (k[0], k[1]))
 
@@ -69,7 +70,7 @@ class Linkage_mechanism():
         # Compute the average
         self.overall_avg = np.mean(self.all_lengths)
 
-    def check_linkage_valid(self, coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, crank_to_revolutions,link_fixeds, links_length,status_location, frame_num, angles_delta):
+    def check_linkage_valid(self, coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, crank_to_revolutions,link_fixeds, links_length,status_location, rotation):
 
         if np.all(coor_val[:4] == 0):
             return False
@@ -93,7 +94,7 @@ class Linkage_mechanism():
         # First stage
         for i in range(0,4,2):
             if coor_val[i] == 1:
-                crank_end = rotate_around_center(all_coords[i], angles_delta, crank_location)
+                crank_end = rotate_around_center(all_coords[i], rotation, crank_location)
                 all_coords[i] = crank_end
                 third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
 
@@ -123,7 +124,11 @@ class Linkage_mechanism():
     def visualize_linkage(self):
         target_trace = []  # Store the trace of the target_coords
 
+        flag = False
+
         for frame in range(self.frame_num):
+            
+            rotation = self.rotation_direction[frame] * self.rotation_speed
 
             if not self.check_linkage_valid(self.coor_val.copy(), 
                                     self.stage2_adjacency.copy(), 
@@ -135,10 +140,9 @@ class Linkage_mechanism():
                                     self.link_fixeds.copy(), 
                                     self.links_length.copy(),
                                     self.status_location.copy(), 
-                                    self.frame_num,
-                                    self.angles_delta
+                                    rotation
                                     ):
-                self.angles_delta = -self.angles_delta
+                flag = True
 
             t = frame / self.frame_num  # t varies from 0 to 1
             marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))  # This will vary between 0 and 1 in a back-and-forth manner due to the cosine function
@@ -146,10 +150,13 @@ class Linkage_mechanism():
             marker_x_position = self.target_lower_left[0] + self.target_width * marker_offset
             marker_position = (marker_x_position, self.target_lower_left[1] + self.target_height/2)  
 
+            if flag:
+                rotation = 0.0
+
             # First stage
             for i in range(0,4,2):
                 if self.coor_val[i] == 1:
-                    crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
+                    crank_end = rotate_around_center(self.all_coords[i], rotation, self.crank_location)
                     self.all_coords[i] = crank_end
                     third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_to_revolutions[i//2], self.status_location, self.link_fixeds[i//2])
                     self.all_coords[i+1] = third_joint
@@ -180,6 +187,7 @@ class Linkage_mechanism():
                                     self.status_location,
                                     self.target_location_info, 
                                     target_trace, 
+                                    self.rotation_direction[frame],
                                     Make_GIF=True, 
                                     frame_num=frame,
                                     marker_position=marker_position
@@ -208,8 +216,11 @@ class Linkage_mechanism():
         loss = 0.0
         # print(self.all_coords)
 
+
+
         for frame in range(self.frame_num):
 
+            rotation = self.rotation_direction[frame] * self.rotation_speed
 
             t = frame / self.frame_num  # t varies from 0 to 1
             marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))  # This will vary between 0 and 1 in a back-and-forth manner due to the cosine function
@@ -221,7 +232,7 @@ class Linkage_mechanism():
             for i in range(0,4,2):
                 if self.coor_val[i] == 1:
                     # print(self.all_coords[i])
-                    crank_end = rotate_around_center(self.all_coords[i], self.angles_delta, self.crank_location)
+                    crank_end = rotate_around_center(self.all_coords[i], rotation, self.crank_location)
                     # print('crank_end:',crank_end)
                     self.all_coords[i] = crank_end
                     third_joint = closest_intersection_point(self.all_coords[i+1], self.all_coords[i], self.crank_lengths[i//2], self.status_location, self.link_fixeds[i//2])

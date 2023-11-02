@@ -29,14 +29,21 @@ class CombinedNetwork(nn.Module):
         input[input.abs() < threshold] = 0
         return input.sign()
 
+    def check_for_nan(self, tensor, name):
+        if torch.isnan(tensor).any():
+            print(f"NaN detected in {name}")
+
     def forward(self, x):
         # First stage
         x1 = x.view(x.size(0), -1)
         x1 = F.relu(self.fc1(x1))
         
         out1_binary = torch.round(torch.sigmoid(self.fc2_binary(x1)))
+        self.check_for_nan(out1_binary, "out1_binary")
+
         out1_coords = self.fc2_coords(x1)
         out1_coords = torch.reshape(out1_coords, (-1, 4, 2))
+        self.check_for_nan(out1_coords, "out1_coords")
 
         # Second stage
         x2 = torch.cat((out1_binary, out1_coords.view(out1_coords.size(0), -1)), dim=1)
@@ -98,7 +105,13 @@ class CombinedNetwork(nn.Module):
         # Map the values to -1, 0, or 1 with a custom threshold
         rotation_directions = self.custom_sign(rotation_tanh, threshold=0.1)
 
-
+        # Before returning the final values, add checks for NaNs
+        self.check_for_nan(final_binary_input, "final_binary_input")
+        self.check_for_nan(out2_adjacency, "out2_adjacency")
+        self.check_for_nan(output_coords, "output_coords")
+        self.check_for_nan(out3_adjacency, "out3_adjacency")
+        self.check_for_nan(out3_coords, "out3_coords")
+        self.check_for_nan(rotation_directions, "rotation_directions")
 
         return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0], rotation_directions
     

@@ -37,9 +37,17 @@ class Lingkage_mec_train():
         self.optimizer = torch.optim.Adam(net.parameters(), lr=self.lr)
         self.scheduler = ExponentialLR(self.optimizer, gamma=1.00)
 
+    def nan_to_num_hook(self, grad):
+        if torch.isnan(grad).any():
+            print("NaN gradient detected!")
+            grad = torch.nan_to_num(grad)
+        return grad
 
     def train(self):
         visualize = False
+                # Register the gradient hook
+        # for param in self.net.parameters():
+        #     param.register_hook(self.nan_to_num_hook)
         for epoch in range(self.epochs):
 
             coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_direction = self.net(self.input_tensor)

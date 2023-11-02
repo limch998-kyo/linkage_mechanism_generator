@@ -33,7 +33,7 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
         if coor_val[i] == 1:
             crank_end = rotate_around_center(all_coords[i], rotation, crank_location)
             all_coords[i] = crank_end
-            third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
+            third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
             if third_joint is None:
                 return False
             all_coords[i+1] = third_joint
@@ -41,13 +41,13 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
     for i in range(4, 8):
         if coor_val[i] == 1:
             joint_a, joint_b = stage2_adjacency[i-4]
-            moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+            moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
             if moved_coord is None:
                 return False
             all_coords[i] = moved_coord
     # Third stage
     joint_a, joint_b = target_adjacency
-    moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+    moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
     if moved_coord is None:
         return False
     target_coords = moved_coord
@@ -60,6 +60,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
     sorted_target_locations = sorted(target_location, key=lambda k: (k[0], k[1]))
 
+    # cloned_all_coords = all_coords.clone()
+    # cloned_all_coords = all_coords
 
     # Determine the lower left corner, width, and height of target location
     target_lower_left = sorted_target_locations[0]
@@ -102,8 +104,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         links_length[i-4, 1] = link2_length
 
     # Third stage
-    output_link1_length = euclidean_distance(target_coords, all_coords[target_adjacency[0]])
-    output_link2_length = euclidean_distance(target_coords, all_coords[target_adjacency[1]])
+    output_link1_length = euclidean_distance(target_coords.clone(), all_coords[target_adjacency[0]])
+    output_link2_length = euclidean_distance(target_coords.clone(), all_coords[target_adjacency[1]])
 
     links_length[4, 0] = output_link1_length
     links_length[4, 1] = output_link2_length
@@ -120,8 +122,10 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     loss = torch.tensor(0.0)
 
     target_trace = []  # Store the trace of the target_coords
+    flag = False
     for frame in range(frame_num):
         rotation = rotation_direction[frame] * angles_delta
+        # rotation = angles_delta
 
         if not check_linkage_valid(coor_val.clone(), 
                             all_coords.clone(), 
@@ -135,8 +139,9 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                             links_length.clone(), 
                             target_coords.clone()
                             ):
-            
-            rotation = rotation_direction[frame] * 0.0
+            # rotation = rotation_direction[frame] * 0.0
+            flag = True
+            # print('rotate')
 
             # print('angle changing')
 
@@ -157,55 +162,61 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         #     flag = False
         #     continue
 
-        # First stage
-        for i in range(0,4,2):
-            if coor_val[i] == 1:
-                crank_end = rotate_around_center(all_coords[i], rotation, crank_location)
-                all_coords[i] = crank_end
-                if torch.isnan(crank_to_revolutions[i//2]):
-                    print('error0')
-                    print(crank_to_revolutions)
-                    print(all_coords)
-                    return
-                third_joint, reason = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
-                if third_joint is None:
-                    print('error1')
-                    return
-                else:
-                    all_coords[i+1] = third_joint
-                    
-
-        # Second stage
-        for i in range(4, 8):
-            if coor_val[i] == 1:
-                joint_a, joint_b = stage2_adjacency[i-4]
-                moved_coord, reason = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
-                if moved_coord is None:
-                    print(joint_a)
-                    print(joint_b)
-                    print(all_coords[i],all_coords[joint_a],link1_length, all_coords[joint_b],link2_length)
-                    print('error2')
-                    return
-                else:
-                    all_coords[i] = moved_coord
+        if not flag:
+            # First stage
+            for i in range(0,4,2):
+                if coor_val[i] == 1:
+                    crank_end = rotate_around_center(all_coords[i], rotation, crank_location)
+                    all_coords[i] = crank_end
+                    if torch.isnan(crank_to_revolutions[i//2]):
+                        print('error0')
+                        print(crank_to_revolutions)
+                        print(all_coords)
+                        return
+                    third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
+                    if third_joint is None:
+                        print('error1')
+                        return
+                    else:
+                        all_coords[i+1] = third_joint
                         
-        # Third stage
-        joint_a, joint_b = target_adjacency
+
+            # Second stage
+            for i in range(4, 8):
+                if coor_val[i] == 1:
+                    joint_a, joint_b = stage2_adjacency[i-4]
+                    moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+                    if moved_coord is None:
+                        print(joint_a)
+                        print(joint_b)
+                        print(all_coords[i],all_coords[joint_a],link1_length, all_coords[joint_b],link2_length)
+                        print('error2')
+                        return
+                    else:
+                        all_coords[i] = moved_coord
+                            
+            # Third stage
+            joint_a, joint_b = target_adjacency
 
 
-        moved_coord, reason = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
-        # print(moved_coord, reason, all_coords[joint_a], all_coords[joint_b])
+            moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[4][0], all_coords[joint_b], links_length[4][1])
+            # print(moved_coord, reason, all_coords[joint_a], all_coords[joint_b])
 
 
 
 
-        if moved_coord is None:
-            print('error3')
-            return
-        else:
-            # diff = moved_coord - target_coords
-            # target_coords = target_coords + diff
-            target_coords = moved_coord
+            if moved_coord is None:
+                print('error3')
+                return
+            else:
+                target_coords = moved_coord
+            
+        flag = False
+
+        # print(links_length)
+        # print(frame)
+        # print(links_length)
+        # print(all_coords)
         if visualize:   
             target_trace.append(tuple(target_coords.clone().detach().numpy()))
 

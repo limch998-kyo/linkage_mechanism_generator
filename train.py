@@ -46,8 +46,8 @@ class Lingkage_mec_train():
     def train(self):
         visualize = False
                 # Register the gradient hook
-        # for param in self.net.parameters():
-        #     param.register_hook(self.nan_to_num_hook)
+        for param in self.net.parameters():
+            param.register_hook(self.nan_to_num_hook)
         for epoch in range(self.epochs):
 
             coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_direction = self.net(self.input_tensor)

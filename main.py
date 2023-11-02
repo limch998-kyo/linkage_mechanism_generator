@@ -12,7 +12,7 @@ status_location = [2,0]
 net = CombinedNetwork()
 
 epochs = 10000
-lr = 0.01
+lr = 0.005
 gamma = 1.000
 
 mechanism_train = Lingkage_mec_train(net, 

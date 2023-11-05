@@ -57,7 +57,7 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
 
     return True, loss1
 
-def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, frame_num=60, visualize=False):
+def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, frame_num=120, visualize=False):
 
     target_location = target_location
 

@@ -57,7 +57,7 @@ class Lingkage_mec_train():
             coor_val = torch.tensor([1.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0])
             target_adjacency = torch.tensor([4,5])
 
-            if epoch % 100 == 0 and self.visualize_mec:
+            if epoch % 10 == 0 and self.visualize_mec:
                 visualize = True
             else:
                 visualize = False

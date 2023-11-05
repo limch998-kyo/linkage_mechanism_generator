@@ -22,8 +22,6 @@ class CombinedNetwork(nn.Module):
         self.fc6_indices = nn.Linear(128, 8)
         self.fc6_coords = nn.Linear(128, 2) 
 
-        # Define the fully connected rotation layer with an input size of 36
-        self.fc_rotation = nn.Linear(36, 60)
     def custom_sign(self,input, threshold=0.1):
         # Values within [-threshold, threshold] are mapped to 0
         input[input.abs() < threshold] = 0
@@ -81,39 +79,14 @@ class CombinedNetwork(nn.Module):
         
         out3_coords = self.fc6_coords(x3)
 
-        # Flatten and concatenate the tensors
-        flattened_coor_val = final_binary_input.view(-1)
-        flattened_stage2_adjacency = out2_adjacency.view(-1)
-        flattened_all_coords = output_coords.view(-1)
-        flattened_target_adjacency = out3_adjacency.view(-1)
-        flattened_target_coords = out3_coords.view(-1)
-        
-        concatenated_features = torch.cat((
-            flattened_coor_val,
-            flattened_stage2_adjacency,
-            flattened_all_coords,
-            flattened_target_adjacency,
-            flattened_target_coords
-        ), dim=0)
-        
-        # Pass the concatenated tensor through the fc_rotation layer
-        rotation_logits = self.fc_rotation(concatenated_features)
-        
-        # Apply tanh activation to map values between -1 and 1
-        rotation_tanh = torch.tanh(rotation_logits)
-        
-        # Map the values to -1, 0, or 1 with a custom threshold
-        rotation_directions = self.custom_sign(rotation_tanh, threshold=0.1)
-
         # Before returning the final values, add checks for NaNs
         self.check_for_nan(final_binary_input, "final_binary_input")
         self.check_for_nan(out2_adjacency, "out2_adjacency")
         self.check_for_nan(output_coords, "output_coords")
         self.check_for_nan(out3_adjacency, "out3_adjacency")
         self.check_for_nan(out3_coords, "out3_coords")
-        self.check_for_nan(rotation_directions, "rotation_directions")
 
-        return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0], rotation_directions
+        return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0]
     
 if __name__ == '__main__':
     # Test

@@ -50,7 +50,7 @@ class Lingkage_mec_train():
             param.register_hook(self.nan_to_num_hook)
         for epoch in range(self.epochs):
 
-            coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_direction = self.net(self.input_tensor)
+            coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = self.net(self.input_tensor)
             all_coords = all_coords*5.0
             target_coords = target_coords*5.0
             stage2_adjacency = torch.tensor([[0,1],[2,3],[0,0],[0,0]])
@@ -71,7 +71,6 @@ class Lingkage_mec_train():
                         self.status_location_tensor[0],
                         self.target_location_tensor,
                         epoch,
-                        rotation_direction,
                         visualize=visualize)
 
             self.optimizer.zero_grad()

@@ -7,26 +7,26 @@ import imageio
 from src.geometry_tensor import closest_intersection_point, rotate_around_center, euclidean_distance
 from visiualizer import visualize_linkage_system
 
-def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, rotation, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords):
+def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, rotation, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords, marker_position):
 
     coor_val = torch.tensor(coor_val)
     all_coords = torch.tensor(all_coords)
 
     if torch.all(coor_val[:4] == 0):
-        return False
+        return False, None
     elif torch.all(coor_val[-4:] == 0):
-        return False
+        return False, None
 
     for i in range(4, 8):
         joint_a, joint_b = stage2_adjacency[i-4]
         if coor_val[i] == 0:
             continue
         elif coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
-            return False
+            return False, None
 
     joint_a, joint_b = target_adjacency
     if coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
-        return False
+        return False, None
 
     # First stage
     for i in range(0, 4, 2):
@@ -35,7 +35,7 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
             all_coords[i] = crank_end
             third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
             if third_joint is None:
-                return False
+                return False, None
             all_coords[i+1] = third_joint
     # Second stage
     for i in range(4, 8):
@@ -43,18 +43,21 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
             joint_a, joint_b = stage2_adjacency[i-4]
             moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
             if moved_coord is None:
-                return False
+                return False, None
             all_coords[i] = moved_coord
     # Third stage
     joint_a, joint_b = target_adjacency
     moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
     if moved_coord is None:
-        return False
+        return False, None
     target_coords = moved_coord
 
-    return True
+    criterion = nn.MSELoss()
+    loss1 = criterion(target_coords, marker_position)
 
-def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch,rotation_direction = [], frame_num=60, visualize=False):
+    return True, loss1
+
+def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, frame_num=60, visualize=False):
 
     target_location = target_location
 
@@ -123,29 +126,12 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
     target_trace = []  # Store the trace of the target_coords
     flag = False
+
+    direction_list = [1, 0,-1]
+
     for frame in range(frame_num):
-        rotation = rotation_direction[frame] * angles_delta
         # rotation = angles_delta
-
-        if not check_linkage_valid(coor_val.clone(), 
-                            all_coords.clone(), 
-                            stage2_adjacency.clone(), 
-                            target_adjacency.clone(), 
-                            rotation, 
-                            crank_location.clone(), 
-                            crank_to_revolutions.clone(), 
-                            status_location.clone(), 
-                            link_fixeds.clone(), 
-                            links_length.clone(), 
-                            target_coords.clone()
-                            ):
-            # rotation = rotation_direction[frame] * 0.0
-            flag = True
-            # print('rotate')
-
-            # print('angle changing')
-
-# Assuming all variables are tensors.
+        # Assuming all variables are tensors.
         t = frame / frame_num # Ensure division is floating point.
 
         marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))
@@ -154,6 +140,36 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # you need to extract x and y components separately.
         marker_x_position = first_target_coord[0] + target_width * marker_offset
         marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=first_target_coord.device)
+
+        temp_loss_list = []
+        temp_direction_list = []
+        for direction in direction_list:
+
+            rotation = direction * angles_delta
+            linkage_valid, temp_loss =  check_linkage_valid(coor_val.clone(), 
+                                all_coords.clone(), 
+                                stage2_adjacency.clone(), 
+                                target_adjacency.clone(), 
+                                rotation, 
+                                crank_location.clone(), 
+                                crank_to_revolutions.clone(), 
+                                status_location.clone(), 
+                                link_fixeds.clone(), 
+                                links_length.clone(), 
+                                target_coords.clone(),
+                                marker_position
+                                )
+            if linkage_valid:
+                temp_loss_list.append(temp_loss.clone().detach())
+                temp_direction_list.append(direction)
+            else:
+                continue
+        
+        min_loss = min(temp_loss_list)
+        min_index = temp_loss_list.index(min_loss)
+        
+        rotation = temp_direction_list[min_index] * angles_delta
+
 
         # if flag:
         #     criterion = nn.MSELoss()
@@ -229,7 +245,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                                     status_location.clone().detach().numpy(),
                                     target_location_info, 
                                     target_trace, 
-                                    rotation_direction[frame].clone().item(),
+                                    temp_direction_list[min_index],
                                     Make_GIF=True, 
                                     frame_num=frame,
                                     marker_position=marker_position

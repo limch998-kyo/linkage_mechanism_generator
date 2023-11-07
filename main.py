@@ -10,6 +10,10 @@ target_location = [[-5,5.5],[-5,4.5],[5,5.5],[5,4.5]]
 crank_location = [-2,0]
 status_location = [2,0]
 
+batch = [target_location,crank_location,status_location]
+
+input_batches = [batch,batch,batch,batch]
+
 net = CombinedNetwork()
 
 # Define device
@@ -26,14 +30,12 @@ gamma = 1.000
 
 
 mechanism_train = Lingkage_mec_train(net, 
-                   crank_location, 
-                   status_location, 
-                   target_location, 
-                   device,
-                   epochs=epochs, 
-                   lr=lr, 
-                   gamma=gamma, 
-                   visualize_mec=True
+                                    input_batches,
+                                    device,
+                                    epochs=epochs, 
+                                    lr=lr, 
+                                    gamma=gamma, 
+                                    visualize_mec=False
                    )
 
 mechanism_train.train()

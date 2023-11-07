@@ -19,7 +19,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 net = net.to(device)
 
 
-epochs = 1
+epochs = 1000
 lr = 0.005
 gamma = 1.000
 
@@ -33,7 +33,7 @@ mechanism_train = Lingkage_mec_train(net,
                    epochs=epochs, 
                    lr=lr, 
                    gamma=gamma, 
-                   visualize_mec=False
+                   visualize_mec=True
                    )
 
 mechanism_train.train()

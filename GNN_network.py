@@ -5,22 +5,38 @@ class CombinedNetwork(nn.Module):
     def __init__(self):
         super(CombinedNetwork, self).__init__()
 
+        # # First stage layers
+        # self.fc1 = nn.Linear(12, 32)
+        # self.fc2_binary = nn.Linear(32, 2)
+        # self.fc2_coords = nn.Linear(32, 8)
+
+        # # Second stage layers
+        # self.fc3 = nn.Linear(10, 64)  # 8 (coords) + 2 (binary)
+        # self.fc4_binary = nn.Linear(64, 4)
+        # self.fc4_indices = nn.Linear(64, 16)  # Producing (4,4) tensor 
+        # self.fc4_coords = nn.Linear(64, 8)  # Producing (4,2) coordinates
+
+        # # Third stage layers
+        # self.fc5 = nn.Linear(24, 128)  # 8 (binary) + 16 (coords)
+        # # self.fc6_binary = nn.Linear(128, 2)
+        # self.fc6_indices = nn.Linear(128, 8)
+        # self.fc6_coords = nn.Linear(128, 2) 
+
         # First stage layers
-        self.fc1 = nn.Linear(12, 32)
-        self.fc2_binary = nn.Linear(32, 2)
-        self.fc2_coords = nn.Linear(32, 8)
+        self.fc1 = nn.Linear(12, 24)  # Reduced number of neurons
+        self.fc2_binary = nn.Linear(24, 2)
+        self.fc2_coords = nn.Linear(24, 8)
 
         # Second stage layers
-        self.fc3 = nn.Linear(10, 64)  # 8 (coords) + 2 (binary)
-        self.fc4_binary = nn.Linear(64, 4)
-        self.fc4_indices = nn.Linear(64, 16)  # Producing (4,4) tensor 
-        self.fc4_coords = nn.Linear(64, 8)  # Producing (4,2) coordinates
+        self.fc3 = nn.Linear(10, 32)  # Reduced number of neurons
+        self.fc4_binary = nn.Linear(32, 4)
+        self.fc4_indices = nn.Linear(32, 16)
+        self.fc4_coords = nn.Linear(32, 8)
 
         # Third stage layers
-        self.fc5 = nn.Linear(24, 128)  # 8 (binary) + 16 (coords)
-        # self.fc6_binary = nn.Linear(128, 2)
-        self.fc6_indices = nn.Linear(128, 8)
-        self.fc6_coords = nn.Linear(128, 2) 
+        self.fc5 = nn.Linear(24, 32)  # Reduced number of neurons
+        self.fc6_indices = nn.Linear(32, 8)
+        self.fc6_coords = nn.Linear(32, 2)
 
     def custom_sign(self,input, threshold=0.1):
         # Values within [-threshold, threshold] are mapped to 0

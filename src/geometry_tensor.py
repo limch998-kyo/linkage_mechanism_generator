@@ -63,30 +63,48 @@ def circle_intercept(P1, r1, P2, r2):
 
 
 
+# def closest_point(input_coord, potential_coords):
+#     # Ensure the input tensors have gradient tracking enabled
+#     if not input_coord.requires_grad:
+#         input_coord.requires_grad_()
+#     if not potential_coords.requires_grad:
+#         potential_coords.requires_grad_()
+
+#     # Split the potential_coords into x and y coordinate arrays
+#     potential_coords_x = potential_coords[::2]
+#     potential_coords_y = potential_coords[1::2]
+
+#     # Calculate squared distances, no need to take the square root since we're just looking for the minimum distance
+#     distances = (potential_coords_x - input_coord[0])**2 + (potential_coords_y - input_coord[1])**2
+#     index = torch.argmin(distances).item()
+
+#     # Extract the closest point's coordinates
+#     closest_x = potential_coords_x[index]
+#     closest_y = potential_coords_y[index]
+
+#     # Combine them into a single tensor
+#     closest_coord = torch.stack([closest_x, closest_y])
+
+#     return closest_coord
+
 def closest_point(input_coord, potential_coords):
     # Ensure the input tensors have gradient tracking enabled
-    if not input_coord.requires_grad:
-        input_coord.requires_grad_()
-    if not potential_coords.requires_grad:
-        potential_coords.requires_grad_()
+    input_coord.requires_grad_()
+    potential_coords.requires_grad_()
 
-    # Split the potential_coords into x and y coordinate arrays
-    potential_coords_x = potential_coords[::2]
-    potential_coords_y = potential_coords[1::2]
+    # Reshape the potential_coords to a 2D tensor of shape (num_points, 2)
+    potential_coords = potential_coords.view(-1, 2)
 
-    # Calculate squared distances, no need to take the square root since we're just looking for the minimum distance
-    distances = (potential_coords_x - input_coord[0])**2 + (potential_coords_y - input_coord[1])**2
-    index = torch.argmin(distances).item()
+    # Subtract input_coord from all potential_coords (broadcasting), square, and sum to get squared distances
+    distances = ((potential_coords - input_coord)**2).sum(dim=1)
 
-    # Extract the closest point's coordinates
-    closest_x = potential_coords_x[index]
-    closest_y = potential_coords_y[index]
+    # Get the index of the closest point
+    min_dist, index = torch.min(distances, dim=0)
 
-    # Combine them into a single tensor
-    closest_coord = torch.stack([closest_x, closest_y])
+    # Select the closest point
+    closest_coord = potential_coords[index]
 
     return closest_coord
-
 
 
 def closest_intersection_point(input_coord, P1, r1, P2, r2):

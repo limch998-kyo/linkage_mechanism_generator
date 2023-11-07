@@ -3,6 +3,7 @@ import numpy as np
 import torch.nn as nn
 import os
 import imageio
+import torch.multiprocessing as mp
 
 from src.geometry_tensor import closest_intersection_point, rotate_around_center, euclidean_distance
 from visiualizer import visualize_linkage_system
@@ -53,6 +54,27 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
     loss1 = criterion(target_coords, marker_position)
 
     return True, loss1
+
+def parallel_function(direction, results, index, coor_val, all_coords, stage2_adjacency, target_adjacency, angles_delta, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords, marker_position, device):
+    rotation = direction * angles_delta
+    linkage_valid, temp_loss = check_linkage_valid(coor_val.clone(),
+                                                   all_coords.clone(),
+                                                   stage2_adjacency.clone(),
+                                                   target_adjacency.clone(),
+                                                   rotation,
+                                                   crank_location.clone(),
+                                                   crank_to_revolutions.clone(),
+                                                   status_location.clone(),
+                                                   link_fixeds.clone(),
+                                                   links_length.clone(),
+                                                   target_coords.clone(),
+                                                   marker_position,
+                                                   device)
+        # Save results in shared data structure
+    if linkage_valid:
+        results[index] = temp_loss.clone().detach()
+    else:
+        results[index] = None  # Use None as a placeholder for invalid results
 
 def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, frame_num=60, visualize=False):
 
@@ -149,28 +171,24 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
         temp_loss_list = []
         temp_direction_list = []
-        for direction in direction_list:
+        # Manager to hold the results
+        manager = mp.Manager()
+        results = manager.list([None] * len(direction_list))
 
-            rotation = direction * angles_delta
-            linkage_valid, temp_loss =  check_linkage_valid(coor_val.clone(), 
-                                all_coords.clone(), 
-                                stage2_adjacency.clone(), 
-                                target_adjacency.clone(), 
-                                rotation, 
-                                crank_location.clone(), 
-                                crank_to_revolutions.clone(), 
-                                status_location.clone(), 
-                                link_fixeds.clone(), 
-                                links_length.clone(), 
-                                target_coords.clone(),
-                                marker_position,
-                                device
-                                )
-            if linkage_valid:
-                temp_loss_list.append(temp_loss.clone().detach())
-                temp_direction_list.append(direction)
-            else:
-                continue
+        # Create a list of processes
+        processes = []
+        for i, direction in enumerate(direction_list):
+            # args is a tuple of arguments to pass to the function
+            p = mp.Process(target=parallel_function, args=(direction, results, i, coor_val, all_coords, stage2_adjacency, target_adjacency, angles_delta, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords, marker_position, device))
+            processes.append(p)
+            p.start()
+
+        # Join the processes
+        for p in processes:
+            p.join()
+
+        # Filter out the None results and keep the valid losses
+        temp_loss_list = [res for res in results if res is not None]
         
         min_loss = min(temp_loss_list)
         min_index = temp_loss_list.index(min_loss)

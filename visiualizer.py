@@ -23,6 +23,8 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
     # Set the crank color based on the rotation direction
     crank_color = rotation_colors[rotation_direction]
 
+
+
     if fail_num >0:
     # Stage 1
         if coor_val[0] == 1:  # Link exists for the first set

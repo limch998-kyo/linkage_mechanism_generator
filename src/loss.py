@@ -7,10 +7,7 @@ import imageio
 from src.geometry_tensor import closest_intersection_point, rotate_around_center, euclidean_distance
 from visiualizer import visualize_linkage_system
 
-def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, rotation, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords, marker_position):
-
-    coor_val = torch.tensor(coor_val)
-    all_coords = torch.tensor(all_coords)
+def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, rotation, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords, marker_position, device):
 
     if torch.all(coor_val[:4] == 0):
         return False, None
@@ -57,7 +54,10 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
 
     return True, loss1
 
-def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, frame_num=120, visualize=False):
+def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, frame_num=60, visualize=False):
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
     target_location = target_location
 
@@ -70,10 +70,13 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     target_lower_left = sorted_target_locations[0]
     target_width = sorted_target_locations[3][0] - sorted_target_locations[0][0]
     target_height = sorted_target_locations[3][1] - sorted_target_locations[0][1]
+
     target_location_info = [target_lower_left, target_width, target_height]
+    target_location_info = [info.clone().cpu().numpy() for info in target_location_info]
 
 
-    angles_delta = torch.tensor(2 * torch.pi / frame_num)
+    angles_delta = torch.tensor(2 * torch.pi / frame_num).to(device)
+
 
     first_target_coord = (target_location[0] + target_location[1]) / 2
     # second_target_coord = (target_location[2] + target_location[3]) /2
@@ -96,7 +99,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     # Second stage
     # 5 rows (4 from the second stage + 1 from the third stage) and 2 columns (for link1 and link2 lengths)
     # Assuming all_coords, stage2_adjacency, target_coords, and target_adjacency are defined elsewhere
-    links_length = torch.zeros(5, 2)
+    links_length = torch.zeros(5, 2,device=device)
 
     # Second stage
     for i in range(4, 8):
@@ -116,13 +119,15 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     # Flatten links_length directly without detaching
     links_length_tensor = links_length.flatten()
 
+
     # Concatenate all tensors
     all_lengths = torch.cat([crank_lengths, link_fixeds, links_length_tensor])
 
     # Compute the average
     overall_avg = torch.mean(all_lengths)
 
-    loss = torch.tensor(0.0)
+    loss = torch.tensor(0.0, device=device)
+
 
     target_trace = []  # Store the trace of the target_coords
     flag = False
@@ -139,7 +144,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # Assuming first_target_coord is a tensor of shape [2], 
         # you need to extract x and y components separately.
         marker_x_position = first_target_coord[0] + target_width * marker_offset
-        marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=first_target_coord.device)
+        marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=device)
+
 
         temp_loss_list = []
         temp_direction_list = []
@@ -157,7 +163,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                                 link_fixeds.clone(), 
                                 links_length.clone(), 
                                 target_coords.clone(),
-                                marker_position
+                                marker_position,
+                                device
                                 )
             if linkage_valid:
                 temp_loss_list.append(temp_loss.clone().detach())
@@ -234,22 +241,23 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         # print(links_length)
         # print(all_coords)
         if visualize:   
-            target_trace.append(tuple(target_coords.clone().detach().numpy()))
+            target_trace.append(tuple(target_coords.clone().detach().cpu().numpy()))
 
-            visualize_linkage_system(coor_val.clone().detach().numpy(), 
-                                    stage2_adjacency.clone().detach().numpy(), 
-                                    all_coords.clone().detach().numpy(), 
-                                    target_adjacency.clone().detach().numpy(), 
-                                    target_coords.clone().detach().numpy(), 
-                                    crank_location.clone().detach().numpy(), 
-                                    status_location.clone().detach().numpy(),
-                                    target_location_info, 
-                                    target_trace, 
-                                    temp_direction_list[min_index],
-                                    Make_GIF=True, 
-                                    frame_num=frame,
-                                    marker_position=marker_position
-                                    )
+            visualize_linkage_system(
+                coor_val.clone().detach().cpu().numpy(),
+                stage2_adjacency.clone().detach().cpu().numpy(),
+                all_coords.clone().detach().cpu().numpy(),
+                target_adjacency.clone().detach().cpu().numpy(),
+                target_coords.clone().detach().cpu().numpy(),
+                crank_location.clone().detach().cpu().numpy(),
+                status_location.clone().detach().cpu().numpy(),
+                target_location_info, 
+                target_trace, 
+                temp_direction_list[min_index],
+                Make_GIF=True, 
+                frame_num=frame,
+                marker_position=marker_position.cpu().numpy()  # Also convert marker_position to CPU if it's on CUDA
+            )
 
         criterion = nn.MSELoss()
         loss1 = criterion(target_coords, marker_position)

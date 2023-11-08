@@ -3,24 +3,31 @@ import torch
 def euclidean_distance(point1, point2):
     return torch.norm(point1 - point2)
 
-def rotation_matrix(angle):
+def rotation_matrix(angle, device=None):
     cos_val = torch.cos(angle)
     sin_val = torch.sin(angle)
+    # If device is provided, use it, otherwise infer device from angle tensor
+    device = device or angle.device
     return torch.tensor([[cos_val, -sin_val], 
-                         [sin_val, cos_val]])
+                         [sin_val, cos_val]], device=device)
+
 
 def rotate_around_center(coordinates, angle, center):
+    # Infer device from coordinates tensor
+    device = coordinates.device
 
     # Step 1: Translate to origin
     translated_coordinates = coordinates - center
     
     # Step 2: Rotate around origin
-    rotated_coordinates = torch.matmul(translated_coordinates, rotation_matrix(angle))
+    # Pass the device to ensure the matrix is created on the correct device
+    rotated_coordinates = torch.matmul(translated_coordinates, rotation_matrix(angle, device))
     
     # Step 3: Translate back to original position
     rotated_coordinates_back = rotated_coordinates + center
     
     return rotated_coordinates_back
+
 
 def circle_intercept(P1, r1, P2, r2):
     x1, y1 = P1

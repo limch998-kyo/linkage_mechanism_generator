@@ -1,41 +1,40 @@
 from GNN_network import CombinedNetwork
-from torch.optim.lr_scheduler import ExponentialLR
 from train import Lingkage_mec_train
 import torch
+import multiprocessing as mp
 
+if __name__ == '__main__':
+    # Set the start method for multiprocessing
+    # mp.set_start_method('spawn')
 
+    target_location = [[-5, 5.5], [-5, 4.5], [5, 5.5], [5, 4.5]]
+    crank_location = [-2, 0]
+    status_location = [2, 0]
 
+    batch = [target_location, crank_location, status_location]
 
-target_location = [[-5,5.5],[-5,4.5],[5,5.5],[5,4.5]]
-crank_location = [-2,0]
-status_location = [2,0]
+    input_batches = [batch, batch, batch, batch]
 
-batch = [target_location,crank_location,status_location]
+    net = CombinedNetwork()
+    
 
-input_batches = [batch,batch,batch,batch]
+    # Define device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-net = CombinedNetwork()
+    # Model to GPU
+    net = net.to(device)
 
-# Define device
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    epochs = 1000
+    lr = 0.005
+    gamma = 1.000
 
-# Model to GPU
-net = net.to(device)
+    mechanism_train = Lingkage_mec_train(net,
+                                         input_batches,
+                                         device,
+                                         epochs=epochs,
+                                         lr=lr,
+                                         gamma=gamma,
+                                         visualize_mec=False
+                                         )
 
-
-epochs = 1000
-lr = 0.005
-gamma = 1.000
-
-
-
-mechanism_train = Lingkage_mec_train(net, 
-                                    input_batches,
-                                    device,
-                                    epochs=epochs, 
-                                    lr=lr, 
-                                    gamma=gamma, 
-                                    visualize_mec=False
-                   )
-
-mechanism_train.train()
+    mechanism_train.train()

@@ -99,11 +99,13 @@ if __name__ == '__main__':
     # Test
     net = CombinedNetwork()
     sample_input = torch.rand((1, 6, 2))
-    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_directions = net(sample_input)
+    print(sample_input)
+    print(sample_input.shape)
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(sample_input)
 
     print(coor_val)
     print(stage2_adjacency)
     print(all_coords)
     print(target_adjacency)
     print(target_coords)
-    print(rotation_directions)
+

@@ -221,7 +221,6 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             # Third stage
             joint_a, joint_b = target_adjacency
 
-
             moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[4][0], all_coords[joint_b], links_length[4][1])
             # print(moved_coord, reason, all_coords[joint_a], all_coords[joint_b])
 
@@ -259,6 +258,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                 marker_position=marker_position.cpu().numpy()  # Also convert marker_position to CPU if it's on CUDA
             )
 
+
         criterion = nn.MSELoss()
         loss1 = criterion(target_coords, marker_position)
         loss = loss + loss1
@@ -275,6 +275,5 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
         imageio.mimsave(f'{current_directory}/learn_process/mechanism_{epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
         print("mechanism gif saved")
-
 
     return loss

@@ -38,7 +38,7 @@ class Lingkage_mec_train():
 
 
     def compute_gradients(self, state_dict, batch, device):
-        print(self.state_dict)
+        # print(self.state_dict)
         # print(state_dict)
 
         # Move the batch to the correct device
@@ -74,7 +74,7 @@ class Lingkage_mec_train():
         coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
         all_coords = all_coords*5.0
         target_coords = target_coords*5.0
-        print(all_coords)
+        # print(all_coords)
 
         stage2_adjacency = torch.tensor([[0,1],[2,3],[0,0],[0,0]],device=self.device)
         coor_val = torch.tensor([1.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0],device=self.device)
@@ -114,10 +114,12 @@ class Lingkage_mec_train():
 
         # Collect gradients, ensuring none are None
         gradients = [
-            (param.grad.detach().clone().cpu() if param.grad is not None else torch.zeros_like(param).cpu())
+            param.grad.clone() if param.grad is not None else torch.zeros_like(param)
             for param in net.parameters()
         ]
-        return gradients
+        # Detach the loss and clone it to ensure it's not part of the graph
+        loss_value = loss.detach().clone().cpu()
+        return gradients, loss_value
 
     def compute_gradients_wrapper(args):
         return compute_gradients(*args)
@@ -140,18 +142,25 @@ class Lingkage_mec_train():
         num_processes = mp.cpu_count()
 
         with Pool(processes=num_processes) as pool:
-            # Map the compute_gradients function to the data for parallel computation
-            # It automatically gathers the results in order
-
-            all_gradients = pool.starmap(
+            # Collect gradients and losses
+            results = pool.starmap(
                 self.compute_gradients,
                 [(state_dict, batch, device) for batch in input_batches]
             )
 
+        # Separate gradients and losses
+        all_gradients = [result[0] for result in results]
+        all_losses = [result[1] for result in results]
 
-            # Average the gradients
-        averaged_gradients = [torch.mean(torch.stack([g[i] for g in all_gradients]), dim=0) for i in range(len(all_gradients[0]))]
-        return averaged_gradients
+
+        # Average the gradients and losses
+        averaged_gradients = [
+            torch.mean(torch.stack([g[i] for g in all_gradients]), dim=0)
+            for i in range(len(all_gradients[0]))
+        ]
+        averaged_loss = torch.mean(torch.stack(all_losses), dim=0)
+
+        return averaged_gradients, averaged_loss
 
     def train(self):
         # self.net.share_memory()  # Allow network parameters to be shared between processes
@@ -165,33 +174,35 @@ class Lingkage_mec_train():
 
 
 
-        # Your training loop
         for epoch in range(self.epochs):
             self.epoch = epoch
-            # Compute gradients in parallel
-            averaged_gradients = self.parallel_gradient_computation(self.net, self.input_batches, self.device)
-            # Before using the averaged gradients, move them to the correct device
-            averaged_gradients = [g.to(device) for g in averaged_gradients]
+            # Compute gradients and losses in parallel
+            averaged_gradients, averaged_loss = self.parallel_gradient_computation(self.net, self.input_batches, self.device)
 
-            # Convert the total loss value into a tensor to backpropagate
-            # total_loss = torch.tensor(total_loss_value, requires_grad=True, device=self.device)
-            
+            # Before using the averaged gradients, move them to the correct device
+            averaged_gradients = [g.to(self.device) for g in averaged_gradients]
+
             # Apply the averaged gradients
             for i, param in enumerate(self.net.parameters()):
-                param.grad = averaged_gradients[i].to(self.device)
+                param.grad = averaged_gradients[i]
 
-            # Step the optimizer
-            self.optimizer.zero_grad()  # Clear any existing gradients
-            self.scaler.step(self.optimizer)  # Update the model's parameters
-            self.scaler.update()  # Update the scaler
-            self.scheduler.step()  # Adjust the learning rate based on the scheduler
+            # # Step the optimizer
+            # self.optimizer.zero_grad()
+            # self.scaler.step(self.optimizer)
+            # self.scaler.update()
+            # self.scheduler.step()
+            # torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=1.0)
 
-            # Optionally clip gradients
-            torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=1.0)
-
+            # Update the weights
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
             
-            # if epoch % 10 == 0:
-                # print('Epoch:', epoch, 'Total loss:', total_loss.item())
+            # Clip gradients if necessary (uncomment if needed)
+            # torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=1.0)
+
+            self.scheduler.step()
+
+            print('Epoch:', epoch, 'Loss:', averaged_loss.item())
 
 
 

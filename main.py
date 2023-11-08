@@ -13,7 +13,9 @@ if __name__ == '__main__':
 
     batch = [target_location, crank_location, status_location]
 
+
     input_batches = [batch, batch, batch, batch]
+    validation_batches = [batch, batch, batch, batch]
 
     net = CombinedNetwork()
     
@@ -30,11 +32,12 @@ if __name__ == '__main__':
 
     mechanism_train = Lingkage_mec_train(net,
                                          input_batches,
+                                         validation_batches,
                                          device,
                                          epochs=epochs,
                                          lr=lr,
                                          gamma=gamma,
-                                         visualize_mec=False
+                                         visualize_mec=True
                                          )
 
     mechanism_train.train()

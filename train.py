@@ -16,12 +16,13 @@ from torch.multiprocessing import Pool
 
 
 class Lingkage_mec_train():
-    def __init__(self, net, input_batches, device, epochs=10000, lr=0.01, gamma=1.00, visualize_mec=False):
+    def __init__(self, net, input_batches,validation_batches, device, epochs=10000, lr=0.01, gamma=1.00, visualize_mec=False):
         self.net = net
         self.epochs = epochs
         self.lr = lr
         self.gamma = gamma
         self.input_batches = input_batches  # Store the input batches
+        self.validation_batches = validation_batches
         self.device = device
         self.visualize_mec = visualize_mec
 
@@ -37,7 +38,7 @@ class Lingkage_mec_train():
 
 
 
-    def compute_gradients(self, state_dict, batch, device):
+    def compute_gradients(self, state_dict, batch, device, visualize=False):
         # print(self.state_dict)
         # print(state_dict)
 
@@ -98,7 +99,7 @@ class Lingkage_mec_train():
                     status_location_tensor[0],
                     target_location_tensor,
                     self.epoch,
-                    visualize=self.visualize_mec)
+                    visualize=visualize)
 
             # print(loss)
         # Backward pass to compute gradients
@@ -203,8 +204,11 @@ class Lingkage_mec_train():
             self.scheduler.step()
 
             print('Epoch:', epoch, 'Loss:', averaged_loss.item())
+            if epoch % 10 == 0:
 
-
+                if self.visualize_mec:
+                    _, validation_loss = self.compute_gradients(self.net.state_dict(), self.validation_batches[0], self.device, visualize=True)
+                    print('Validation loss:', validation_loss.item())
 
         # Print the profiler output
         # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))

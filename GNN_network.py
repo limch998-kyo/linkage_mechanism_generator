@@ -23,16 +23,16 @@ class CombinedNetwork(nn.Module):
         # self.fc6_coords = nn.Linear(128, 2) 
 
         # First stage layers
-        self.fc1 = nn.Linear(8, 24)  # Reduced number of neurons
-        self.fc2_coords = nn.Linear(24, 8)
+        self.fc1 = nn.Linear(8, 64)  # Reduced number of neurons
+        self.fc2_coords = nn.Linear(64, 8)
 
         # Second stage layers
-        self.fc3 = nn.Linear(8, 32)  # Reduced number of neurons
-        self.fc4_coords = nn.Linear(32, 8)
+        self.fc3 = nn.Linear(8, 128)  # Reduced number of neurons
+        self.fc4_coords = nn.Linear(128, 8)
 
         # Third stage layers
-        self.fc5 = nn.Linear(16, 32)  # Reduced number of neurons
-        self.fc6_coords = nn.Linear(32, 2)
+        self.fc5 = nn.Linear(16, 128)  # Reduced number of neurons
+        self.fc6_coords = nn.Linear(128, 2)
 
     def custom_sign(self, input, threshold=0.1):
         # Values within [-threshold, threshold] are mapped to 0

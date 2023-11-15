@@ -7,8 +7,8 @@ from torch.optim.lr_scheduler import ExponentialLR
 from tqdm import tqdm
 import warnings
 
-# # Suppress the specific warning about non-serializable backward hook
-# warnings.filterwarnings("ignore", message="backward hook <bound method")
+# Suppress the specific warning about non-serializable backward hook
+warnings.filterwarnings("ignore", message="backward hook <bound method")
 
 
 class Lingkage_mec_train():
@@ -198,7 +198,12 @@ class Lingkage_mec_train():
             avg_training_loss = training_loss_sum / self.steps_per_epoch
 
             validation_loss_sum = 0
-            for val_step, validation_batch in enumerate(tqdm(self.validation_batches, desc="Validating", unit="batch")):
+            # for val_step, validation_batch in enumerate(tqdm(self.validation_batches, desc="Validating", unit="batch")):
+            #     # Process the validation batch and compute loss
+            #     _, val_loss = self.compute_gradients(self.net.state_dict(), validation_batch, self.device, visualize=self.visualize_mec)
+            #     validation_loss_sum += val_loss.item()
+
+            for validation_batch in self.validation_batches:
                 # Process the validation batch and compute loss
                 _, val_loss = self.compute_gradients(self.net.state_dict(), validation_batch, self.device, visualize=self.visualize_mec)
                 validation_loss_sum += val_loss.item()

@@ -42,7 +42,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net = net.to(device)
 
-    sub_batch_size = 4
+    sub_batch_size = 16
     steps_per_epoch = 16
     epochs = 1000
     lr = 0.005

@@ -54,33 +54,12 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
 
     return True, loss1
 
-def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, frame_num=60, visualize=False):
+def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, device,frame_num=60, visualize=False):
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-    target_location = target_location
-
-    sorted_target_locations = sorted(target_location, key=lambda k: (k[0], k[1]))
-
-    # cloned_all_coords = all_coords.clone()
-    # cloned_all_coords = all_coords
 
     # Determine the lower left corner, width, and height of target location
-    target_lower_left = sorted_target_locations[0]
-    target_width = sorted_target_locations[3][0] - sorted_target_locations[0][0]
-    target_height = sorted_target_locations[3][1] - sorted_target_locations[0][1]
-
-    target_location_info = [target_lower_left, target_width, target_height]
-    target_location_info = [info.clone().cpu().numpy() for info in target_location_info]
-
 
     angles_delta = torch.tensor(2 * torch.pi / frame_num).to(device)
-
-
-    first_target_coord = (target_location[0] + target_location[1]) / 2
-    # second_target_coord = (target_location[2] + target_location[3]) /2
-    target_width = target_location[2][0] - target_location[0][0]
 
     # Defining Link lengths
     # First stage
@@ -136,10 +115,10 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
 
     # Calculate the center of the first two coordinates (start point)
-    center_start = (target_location[0] + target_location[1]) / 2
+    center_start = target_location[0]
 
     # Calculate the center of the last two coordinates (end point)
-    center_end = (target_location[2] + target_location[3]) / 2
+    center_end = target_location[1]
 
     # Calculate the total number of frames for one direction of the reciprocation
     half_frame_num = frame_num // 2
@@ -156,10 +135,6 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
         # rotation = angles_delta
         # Assuming all variables are tensors.
-        t = frame / frame_num # Ensure division is floating point.
-
-        radius = 2.0  # Example radius
-        center_x, center_y = 5.0, 5.0  # Example center of the circle
 
         # Interpolate the marker's position between the start and end centers
         marker_position = center_start * (1 - progress) + center_end * progress
@@ -195,13 +170,6 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         
         rotation = temp_direction_list[min_index] * angles_delta
 
-
-        # if flag:
-        #     criterion = nn.MSELoss()
-        #     loss1 = criterion(target_coords, marker_position)
-        #     loss = loss + loss1
-        #     flag = False
-        #     continue
 
         if not flag:
             # First stage
@@ -240,11 +208,6 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             joint_a, joint_b = target_adjacency
 
             moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[4][0], all_coords[joint_b], links_length[4][1])
-            # print(moved_coord, reason, all_coords[joint_a], all_coords[joint_b])
-
-
-
-
             if moved_coord is None:
                 print('error3')
                 return
@@ -253,10 +216,6 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             
         flag = False
 
-        # print(links_length)
-        # print(frame)
-        # print(links_length)
-        # print(all_coords)
         if visualize:   
             target_trace.append(tuple(target_coords.clone().detach().cpu().numpy()))
 
@@ -268,7 +227,6 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                 target_coords.clone().detach().cpu().numpy(),
                 crank_location.clone().detach().cpu().numpy(),
                 status_location.clone().detach().cpu().numpy(),
-                target_location_info, 
                 target_trace, 
                 temp_direction_list[min_index],
                 Make_GIF=True, 

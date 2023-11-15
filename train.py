@@ -53,13 +53,11 @@ class Lingkage_mec_train():
             input.append(batch[0][i])
         input_tensor = torch.tensor([input], dtype=torch.float)
         
+        # print(input_tensor)
+
         # Ensure the input tensor is on CPU
         input_tensor = input_tensor.to("cpu")
 
-
-        # Forward pass
-    # with autocast():
-        # print(self.state_dict)
         # Changes start here
         net = CombinedNetwork()
         net.load_state_dict(state_dict)
@@ -70,11 +68,7 @@ class Lingkage_mec_train():
         # Assuming that each input can be concatenated into a single tensor
         input_tensor = input_tensor.to(self.device)
 
-        # print('input_tensor',input_tensor.shape)
-        # print(input_tensor)
-
-
-        coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(input_tensor)
+        all_coords, target_coords = net(input_tensor)
         all_coords = all_coords*5.0
         target_coords = target_coords*5.0
         # print(all_coords)
@@ -82,16 +76,7 @@ class Lingkage_mec_train():
         stage2_adjacency = torch.tensor([[0,1],[2,3],[0,0],[0,0]],device=self.device)
         coor_val = torch.tensor([1.0,1.0,1.0,1.0,1.0,1.0,0.0,0.0],device=self.device)
         target_adjacency = torch.tensor([4,5],device=self.device)
-        # print('start')
-        # print(coor_val)
-        # print(all_coords)
-        # print(target_coords)
-        # print(stage2_adjacency)
-        # print(target_adjacency)
-        # print(crank_location_tensor)
-        # print(status_location_tensor)
-        # print(target_location_tensor)
-        # print('end')
+
         loss = get_loss(coor_val, 
                     all_coords, 
                     target_coords, 
@@ -101,6 +86,7 @@ class Lingkage_mec_train():
                     status_location_tensor[0],
                     target_location_tensor,
                     self.epoch,
+                    device,
                     visualize=visualize)
 
             # print(loss)
@@ -128,7 +114,6 @@ class Lingkage_mec_train():
     def parallel_gradient_computation(self, net, input_batches, device):
 
 
-
         # Ensure state_dict is on CPU
         state_dict = {k: v.cpu() for k, v in net.state_dict().items()}
 
@@ -147,7 +132,6 @@ class Lingkage_mec_train():
         all_gradients = [result[0] for result in results]
         all_losses = [result[1] for result in results]
 
-
         # Average the gradients and losses
         averaged_gradients = [
             torch.mean(torch.stack([g[i] for g in all_gradients]), dim=0)
@@ -164,6 +148,7 @@ class Lingkage_mec_train():
 
         # if mp.get_start_method(allow_none=True) is None:
         #     mp.set_start_method('spawn')
+        
         for param in self.net.parameters():
             assert param.requires_grad, "Parameter does not require gradients."
 

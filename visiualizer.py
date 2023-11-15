@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_location_info, target_trace=[], rotation_direction=[] ,Make_GIF=False, frame_num=0, marker_position=None, fail_num=3):
+def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_trace=[], rotation_direction=[] ,Make_GIF=False, frame_num=0, marker_position=None, fail_num=3):
 
     # Create a new figure and axis
     fig, ax = plt.subplots()
@@ -21,8 +21,6 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
 
     # Set the crank color based on the rotation direction
     crank_color = rotation_colors[rotation_direction]
-
-
 
     if fail_num >0:
     # Stage 1

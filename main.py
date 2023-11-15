@@ -7,7 +7,7 @@ if __name__ == '__main__':
     # Set the start method for multiprocessing
     # mp.set_start_method('spawn')
 
-    target_location = [[-5, 5.5], [-5, 4.5], [5, 5.5], [5, 4.5]]
+    target_location = [[-5, 5], [5, 5]]
     crank_location = [-2, 0]
     status_location = [2, 0]
 

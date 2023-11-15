@@ -23,22 +23,18 @@ class CombinedNetwork(nn.Module):
         # self.fc6_coords = nn.Linear(128, 2) 
 
         # First stage layers
-        self.fc1 = nn.Linear(12, 24)  # Reduced number of neurons
-        self.fc2_binary = nn.Linear(24, 2)
+        self.fc1 = nn.Linear(8, 24)  # Reduced number of neurons
         self.fc2_coords = nn.Linear(24, 8)
 
         # Second stage layers
-        self.fc3 = nn.Linear(10, 32)  # Reduced number of neurons
-        self.fc4_binary = nn.Linear(32, 4)
-        self.fc4_indices = nn.Linear(32, 16)
+        self.fc3 = nn.Linear(8, 32)  # Reduced number of neurons
         self.fc4_coords = nn.Linear(32, 8)
 
         # Third stage layers
-        self.fc5 = nn.Linear(24, 32)  # Reduced number of neurons
-        self.fc6_indices = nn.Linear(32, 8)
+        self.fc5 = nn.Linear(16, 32)  # Reduced number of neurons
         self.fc6_coords = nn.Linear(32, 2)
 
-    def custom_sign(self,input, threshold=0.1):
+    def custom_sign(self, input, threshold=0.1):
         # Values within [-threshold, threshold] are mapped to 0
         input[input.abs() < threshold] = 0
         return input.sign()
@@ -48,52 +44,52 @@ class CombinedNetwork(nn.Module):
         
         # First stage
         x1 = x.view(x.size(0), -1)
+    
         x1 = F.relu(self.fc1(x1))
         
-        out1_binary = torch.round(torch.sigmoid(self.fc2_binary(x1)))
+
+        # out1_binary = torch.round(torch.sigmoid(self.fc2_binary(x1)))
         # out1_binary = torch.heaviside(self.fc2_binary(x1), values=torch.tensor(0.5, device=device))
 
-        out1_coords = self.fc2_coords(x1)
-        out1_coords = torch.reshape(out1_coords, (-1, 4, 2))
+        x2 = self.fc2_coords(x1)
+        out1_coords = torch.reshape(x2, (-1, 4, 2))
 
         # Second stage
-        x2 = torch.cat((out1_binary, out1_coords.view(out1_coords.size(0), -1)), dim=1)
-        x2 = F.relu(self.fc3(x2))
+        # x2 = torch.cat((out1_binary, out1_coords.view(out1_coords.size(0), -1)), dim=1)
+        x3 = F.relu(self.fc3(x2))
         
-        out2_binary = torch.round(torch.sigmoid(self.fc4_binary(x2)))
+        # out2_binary = torch.round(torch.sigmoid(self.fc4_binary(x2)))
         # out2_binary = torch.heaviside(self.fc4_binary(x2), values=torch.tensor(0.5, device=device))
         
         # Generating unique adjacency values using softmax and argmax (assuming two largest values are selected)
-        out2_adj_softmax = F.softmax(self.fc4_indices(x2).view(-1, 4, 4), dim=2)
-        _, top2_indices = torch.topk(out2_adj_softmax, 2, dim=2)
-        out2_adjacency = top2_indices.sort(dim=2).values
+        # out2_adj_softmax = F.softmax(self.fc4_indices(x2).view(-1, 4, 4), dim=2)
+        # _, top2_indices = torch.topk(out2_adj_softmax, 2, dim=2)
+        # out2_adjacency = top2_indices.sort(dim=2).values
         
-        out2_coords = self.fc4_coords(x2)
-        out2_coords = torch.reshape(out2_coords, (-1, 4, 2))
+        x3 = self.fc4_coords(x3)
+        out2_coords = torch.reshape(x3, (-1, 4, 2))
 
         # Prepare inputs for the third stage
-        stretched_out1_binary = out1_binary.repeat_interleave(2, dim=1)
-
-        final_binary_input = torch.cat((stretched_out1_binary, out2_binary), dim=1)
-        
+        # stretched_out1_binary = out1_binary.repeat_interleave(2, dim=1)
+        # final_binary_input = torch.cat((stretched_out1_binary, out2_binary), dim=1)
         output_coords = torch.cat((out1_coords, out2_coords), dim=1)
-
         all_coordinates = torch.cat((out1_coords, out2_coords), dim=1).view(-1, 16)
 
         # Third stage
-        x3 = torch.cat((final_binary_input, all_coordinates), dim=1)
+        # x3 = torch.cat((final_binary_input, all_coordinates), dim=1)
+        x3 = all_coordinates
         x3 = F.relu(self.fc5(x3))
         
         # out3_binary = torch.round(torch.sigmoid(self.fc6_binary(x3)))
         
         # Ensuring unique values for indices
-        out3_adj_softmax = F.softmax(self.fc6_indices(x3), dim=1)
-        _, top2_indices = torch.topk(out3_adj_softmax, 2, dim=1)
-        out3_adjacency = top2_indices.sort(dim=1).values
+        # out3_adj_softmax = F.softmax(self.fc6_indices(x3), dim=1)
+        # _, top2_indices = torch.topk(out3_adj_softmax, 2, dim=1)
+        # out3_adjacency = top2_indices.sort(dim=1).values
         
         out3_coords = self.fc6_coords(x3)
 
-        return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0]
+        return output_coords[0], out3_coords[0]
     
 if __name__ == '__main__':
     # Test

@@ -134,17 +134,35 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
     direction_list = [1, 0,-1]
 
+
+    # Calculate the center of the first two coordinates (start point)
+    center_start = (target_location[0] + target_location[1]) / 2
+
+    # Calculate the center of the last two coordinates (end point)
+    center_end = (target_location[2] + target_location[3]) / 2
+
+    # Calculate the total number of frames for one direction of the reciprocation
+    half_frame_num = frame_num // 2
+
     for frame in range(frame_num):
+
+        # Determine the progress in the current half of the reciprocation cycle
+        half_cycle_frame = frame % half_frame_num
+        progress = half_cycle_frame / half_frame_num
+
+        # Reverse the progress if we are in the second half of the reciprocation cycle
+        if frame >= half_frame_num:
+            progress = 1 - progress
+
         # rotation = angles_delta
         # Assuming all variables are tensors.
         t = frame / frame_num # Ensure division is floating point.
 
-        marker_offset = 0.5 * (1 - np.cos(2 * np.pi * t))
+        radius = 2.0  # Example radius
+        center_x, center_y = 5.0, 5.0  # Example center of the circle
 
-        # Assuming first_target_coord is a tensor of shape [2], 
-        # you need to extract x and y components separately.
-        marker_x_position = first_target_coord[0] + target_width * marker_offset
-        marker_position = torch.tensor([marker_x_position, first_target_coord[1]], device=device)
+        # Interpolate the marker's position between the start and end centers
+        marker_position = center_start * (1 - progress) + center_end * progress
 
 
         temp_loss_list = []

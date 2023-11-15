@@ -1,22 +1,20 @@
-# from points_generator import generate_coordinates
 import torch
 import torch.multiprocessing as mp
-
-from torch.cuda.amp import autocast, GradScaler
 from GNN_network import CombinedNetwork
-
 from utils import output_process
 from src.linkage_builder import Linkage_mechanism
 from src.loss import get_loss
-
-
 from torch.optim.lr_scheduler import ExponentialLR
-from torch.profiler import profile, record_function, ProfilerActivity
-from torch.multiprocessing import Pool
+import torch.utils.hooks as hooks
 
 
 class Lingkage_mec_train():
     def __init__(self, net, input_batches,validation_batches, device, epochs=10000, lr=0.01, gamma=1.00, visualize_mec=False):
+
+        # Register the nan_to_num_hook for each parameter
+        for param in net.parameters():
+            param.register_hook(self.nan_to_num_hook)
+
         self.net = net
         self.epochs = epochs
         self.lr = lr
@@ -28,8 +26,8 @@ class Lingkage_mec_train():
 
         self.optimizer = torch.optim.Adam(net.parameters(), lr=self.lr)
         self.scheduler = ExponentialLR(self.optimizer, gamma=gamma)
-        self.scaler = GradScaler()
 
+    @hooks.unserializable_hook
     def nan_to_num_hook(self, grad):
         if torch.isnan(grad).any():
             print("NaN gradient detected!")
@@ -55,11 +53,15 @@ class Lingkage_mec_train():
             input.append(batch[0][i])
         input_tensor = torch.tensor([input], dtype=torch.float)
         
+        # Ensure the input tensor is on CPU
+        input_tensor = input_tensor.to("cpu")
+
+
         # Forward pass
     # with autocast():
         # print(self.state_dict)
+        # Changes start here
         net = CombinedNetwork()
-
         net.load_state_dict(state_dict)
 
         # for params in net.parameters():
@@ -122,27 +124,19 @@ class Lingkage_mec_train():
         loss_value = loss.detach().clone().cpu()
         return gradients, loss_value
 
-    def compute_gradients_wrapper(args):
-        return compute_gradients(*args)
 
     def parallel_gradient_computation(self, net, input_batches, device):
 
 
 
-        # Use the current network state_dict for all batches
-        self.state_dict = net.state_dict()
-        state_dict = self.state_dict
+        # Ensure state_dict is on CPU
+        state_dict = {k: v.cpu() for k, v in net.state_dict().items()}
 
-        
-        # print(state_dict.device)
-        # # Convert it to CPU for sharing with subprocesses
-        # cpu_state_dict = {k: v.cpu() for k, v in state_dict.items()}
-        # print(self.state_dict)
 
         # Create a pool of workers, the number of processes is usually set to the number of cores
         num_processes = mp.cpu_count()
 
-        with Pool(processes=num_processes) as pool:
+        with mp.Pool(processes=num_processes) as pool:
             # Collect gradients and losses
             results = pool.starmap(
                 self.compute_gradients,
@@ -178,29 +172,14 @@ class Lingkage_mec_train():
         for epoch in range(self.epochs):
             self.epoch = epoch
             # Compute gradients and losses in parallel
-            averaged_gradients, averaged_loss = self.parallel_gradient_computation(self.net, self.input_batches, self.device)
-
-            # Before using the averaged gradients, move them to the correct device
-            averaged_gradients = [g.to(self.device) for g in averaged_gradients]
+            averaged_gradients, averaged_loss = self.parallel_gradient_computation(self.net, self.input_batches, "cpu")
 
             # Apply the averaged gradients
             for i, param in enumerate(self.net.parameters()):
-                param.grad = averaged_gradients[i]
-
-            # # Step the optimizer
-            # self.optimizer.zero_grad()
-            # self.scaler.step(self.optimizer)
-            # self.scaler.update()
-            # self.scheduler.step()
-            # torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=1.0)
+                param.grad = averaged_gradients[i].to("cpu")
 
             # Update the weights
-            self.scaler.step(self.optimizer)
-            self.scaler.update()
-            
-            # Clip gradients if necessary (uncomment if needed)
-            # torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=1.0)
-
+            self.optimizer.step()
             self.scheduler.step()
 
             print('Epoch:', epoch, 'Loss:', averaged_loss.item())

@@ -4,7 +4,6 @@ from matplotlib.patches import Rectangle
 
 def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_location_info, target_trace=[], rotation_direction=[] ,Make_GIF=False, frame_num=0, marker_position=None, fail_num=3):
 
-
     # Create a new figure and axis
     fig, ax = plt.subplots()
 
@@ -67,10 +66,26 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
 
     # Draw the given target locations rectangle
 
-    lower_left, width, height = target_location_info
+    # Draw the trace of the target_coords and determine the bounding box
+    # min_x, min_y, max_x, max_y = float('inf'), float('inf'), float('-inf'), float('-inf')
+    # for (x, y) in target_trace:
+    #     ax.scatter(x, y, c='magenta', marker='.', s=10)  # Change color and size as per your needs
+    #     min_x, min_y = min(min_x, x), min(min_y, y)
+    #     max_x, max_y = max(max_x, x), max(max_y, y)
 
-    rect = Rectangle(lower_left, width, height, edgecolor='cyan', facecolor='none')  # Change color as per your needs
-    ax.add_patch(rect)
+    # # Calculate the width and height of the bounding box
+    # bounding_width = max_x - min_x
+    # bounding_height = max_y - min_y
+
+    # # Create the bounding box rectangle
+    # bounding_rect = Rectangle((min_x, min_y), bounding_width, bounding_height, edgecolor='red', facecolor='none')
+    # ax.add_patch(bounding_rect)
+
+
+    # lower_left, width, height = target_location_info
+
+    # rect = Rectangle(lower_left, width, height, edgecolor='cyan', facecolor='none')  # Change color as per your needs
+    # ax.add_patch(rect)
 
     # Draw the trace of the target_coords
     for (x, y) in target_trace:

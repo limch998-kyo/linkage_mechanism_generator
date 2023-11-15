@@ -1,20 +1,25 @@
 import torch
 import torch.multiprocessing as mp
+import torch.utils.hooks as hooks
 from GNN_network import CombinedNetwork
-from utils import output_process
-from src.linkage_builder import Linkage_mechanism
 from src.loss import get_loss
 from torch.optim.lr_scheduler import ExponentialLR
-import torch.utils.hooks as hooks
+from tqdm import tqdm
+import warnings
+
+# # Suppress the specific warning about non-serializable backward hook
+# warnings.filterwarnings("ignore", message="backward hook <bound method")
 
 
 class Lingkage_mec_train():
-    def __init__(self, net, input_batches,validation_batches, device, epochs=10000, lr=0.01, gamma=1.00, visualize_mec=False):
+    def __init__(self, net, input_batches,validation_batches, sub_batch_size, steps_per_epoch,device, epochs=10000, lr=0.01, gamma=1.00, visualize_mec=False):
 
         # Register the nan_to_num_hook for each parameter
         for param in net.parameters():
             param.register_hook(self.nan_to_num_hook)
 
+        self.sub_batch_size = sub_batch_size
+        self.steps_per_epoch = steps_per_epoch
         self.net = net
         self.epochs = epochs
         self.lr = lr
@@ -26,6 +31,29 @@ class Lingkage_mec_train():
 
         self.optimizer = torch.optim.Adam(net.parameters(), lr=self.lr)
         self.scheduler = ExponentialLR(self.optimizer, gamma=gamma)
+
+    def save_model(self, path):
+        # Saving model state dictionary and other relevant information
+        torch.save({
+            'epoch': self.epoch,
+            'model_state_dict': self.net.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
+            # Add other states if necessary
+        }, path)
+
+    def load_model(self, path):
+        # Load saved states
+        checkpoint = torch.load(path)
+
+        # Load state dictionaries
+        self.net.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+
+        # Load other states if necessary
+        self.epoch = checkpoint['epoch']
+
 
     @hooks.unserializable_hook
     def nan_to_num_hook(self, grad):
@@ -142,37 +170,48 @@ class Lingkage_mec_train():
         return averaged_gradients, averaged_loss
 
     def train(self):
-        # self.net.share_memory()  # Allow network parameters to be shared between processes
-        # Ensure CUDA operations are performed in the 'spawned' process
-
-
-        # if mp.get_start_method(allow_none=True) is None:
-        #     mp.set_start_method('spawn')
-        
-        for param in self.net.parameters():
-            assert param.requires_grad, "Parameter does not require gradients."
-
-
-
         for epoch in range(self.epochs):
             self.epoch = epoch
-            # Compute gradients and losses in parallel
-            averaged_gradients, averaged_loss = self.parallel_gradient_computation(self.net, self.input_batches, "cpu")
+            sub_batch = self.input_batches[epoch:epoch + self.sub_batch_size]
+            training_loss_sum = 0
 
-            # Apply the averaged gradients
-            for i, param in enumerate(self.net.parameters()):
-                param.grad = averaged_gradients[i].to("cpu")
+            with tqdm(range(self.steps_per_epoch), desc=f"Epoch {epoch+1}/{self.epochs}", unit="step") as t:
+                for step in t:
+                    # Compute gradients and losses for the sub-batch
+                    averaged_gradients, averaged_loss = self.parallel_gradient_computation(self.net, sub_batch, "cpu")
+                    
+                    # Apply the averaged gradients
+                    for j, param in enumerate(self.net.parameters()):
+                        param.grad = averaged_gradients[j].to("cpu")
 
-            # Update the weights
-            self.optimizer.step()
-            self.scheduler.step()
+                    # Gradient clipping
+                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=1.0)
 
-            print('Epoch:', epoch, 'Loss:', averaged_loss.item())
-            if epoch % 10 == 0:
+                    # Update the weights
+                    self.optimizer.step()
+                    self.scheduler.step()
+                    training_loss_sum += averaged_loss.item()
 
-                if self.visualize_mec:
-                    _, validation_loss = self.compute_gradients(self.net.state_dict(), self.validation_batches[0], self.device, visualize=True)
-                    print('Validation loss:', validation_loss.item())
+                    # Update tqdm description with current loss
+                    t.set_description(f"Epoch {epoch+1}/{self.epochs}, Step {step+1}/{self.steps_per_epoch}, Loss: {averaged_loss.item():.4f}")
+
+            avg_training_loss = training_loss_sum / self.steps_per_epoch
+
+            validation_loss_sum = 0
+            for val_step, validation_batch in enumerate(tqdm(self.validation_batches, desc="Validating", unit="batch")):
+                # Process the validation batch and compute loss
+                _, val_loss = self.compute_gradients(self.net.state_dict(), validation_batch, self.device, visualize=self.visualize_mec)
+                validation_loss_sum += val_loss.item()
+
+            avg_validation_loss = validation_loss_sum / len(self.validation_batches)
+            tqdm.write(f'Epoch {self.epoch+1} - Average Validation Loss: {avg_validation_loss:.4f}')
+            
+            # End-of-Epoch Summary
+            # print(f'\nEpoch {epoch+1}/{self.epochs} Summary:')
+            # print(f'  Average Training Loss: {avg_training_loss:.4f}')
+            # print(f'  Average Validation Loss: {avg_validation_loss:.4f}')
+
+
 
         # Print the profiler output
         # print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))

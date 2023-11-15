@@ -250,6 +250,6 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             frames.append(imageio.imread(f"{current_directory}/GIF_frames/frame_{frame}.png"))
 
         imageio.mimsave(f'{current_directory}/learn_process/mechanism_{epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
-        print("mechanism gif saved")
+        # print("mechanism gif saved")
 
     return loss

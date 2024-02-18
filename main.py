@@ -21,13 +21,13 @@ crank_location = [-2,0]
 status_location = [2,0]
 
 # Define trajectory type and data
-trajectory_type = 'circular'  # Options: 'linear', 'circular', 'elliptical', 'sine'
+trajectory_type = 'linear'  # Options: 'linear', 'circular', 'elliptical', 'sine'
 # Example trajectory data for circular: (center, radius)
 # Adjust this based on the selected trajectory_type
 trajectory_data = {'circular': [(0, 5), 3],
                     'elliptical': [(0, 0), (3, 2)],
-                    'sine': [(0, 0), 2, 10, 8],  # start_point, amplitude, wavelength, length
-                    'linear': [(-3, 0), (3, 0)]}  # start and end points
+                    'sine': [(-5, 5), 2, 50, 10],  # start_point, amplitude, wavelength, length
+                    'linear': [(-5, 5), (5, 5)]}  # start and end points
 
 selected_trajectory_data = trajectory_data[trajectory_type]
 

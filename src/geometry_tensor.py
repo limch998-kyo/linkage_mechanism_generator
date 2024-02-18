@@ -103,7 +103,8 @@ def calculate_elliptical_position(center, radii, angle):
     return torch.tensor([x, y])
 
 def calculate_sine_trajectory(start_point, amplitude, wavelength, length, frame, frame_num):
-    progress = frame / frame_num
+    progress = torch.tensor(frame / frame_num)
     x = length * progress + start_point[0]
-    y = amplitude * torch.sin(2 * math.pi * (progress * frame_num / wavelength)) + start_point[1]
-    return torch.tensor([x, y])
+    # Use torch.pi for PI and ensure all operations are on tensors
+    y = amplitude * torch.sin(2 * torch.pi * (progress * torch.tensor(frame_num) / wavelength)) + start_point[1]
+    return torch.tensor([x, y], dtype=torch.float32)

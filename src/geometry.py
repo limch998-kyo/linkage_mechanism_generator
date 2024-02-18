@@ -1,5 +1,6 @@
 import numpy as np
-
+import torch
+import math
 
 def rotation_matrix(angle):
     return np.array([[np.cos(angle), -np.sin(angle)], 
@@ -62,6 +63,10 @@ def closest_intersection_point(input_coord, P1, r1, P2, r2):
 def euclidean_distance(point1, point2):
     """Calculate Euclidean distance between two points."""
     return np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2)
+
+
+
+
 
 if __name__ == '__main__':
 # Example usage:

@@ -1,4 +1,5 @@
 import torch
+import math
 
 def euclidean_distance(point1, point2):
     return torch.norm(point1 - point2)
@@ -88,3 +89,21 @@ def closest_intersection_point(input_coord, P1, r1, P2, r2):
         return closest_point(input_coord, intersections)
     else:
         return None
+
+def calculate_circular_position(center, radius, angle):
+    angle_tensor = torch.tensor(angle)  # Convert angle to a tensor
+    x = center[0] + radius * torch.cos(angle_tensor)
+    y = center[1] + radius * torch.sin(angle_tensor)
+    return torch.tensor([x, y])
+
+def calculate_elliptical_position(center, radii, angle):
+    angle_tensor = torch.tensor(angle)  # Convert angle to a tensor
+    x = center[0] + radii[0] * torch.cos(angle_tensor)
+    y = center[1] + radii[1] * torch.sin(angle_tensor)
+    return torch.tensor([x, y])
+
+def calculate_sine_trajectory(start_point, amplitude, wavelength, length, frame, frame_num):
+    progress = frame / frame_num
+    x = length * progress + start_point[0]
+    y = amplitude * torch.sin(2 * math.pi * (progress * frame_num / wavelength)) + start_point[1]
+    return torch.tensor([x, y])

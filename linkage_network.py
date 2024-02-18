@@ -1,26 +1,29 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import random
+import numpy as np
+
 class CombinedNetwork(nn.Module):
     def __init__(self):
         super(CombinedNetwork, self).__init__()
 
         # First stage layers
-        self.fc1 = nn.Linear(12, 32)
-        self.fc2_binary = nn.Linear(32, 2)
-        self.fc2_coords = nn.Linear(32, 8)
+        self.fc1 = nn.Linear(12, 64)
+        self.fc2_binary = nn.Linear(64, 2)
+        self.fc2_coords = nn.Linear(64, 8)
 
         # Second stage layers
-        self.fc3 = nn.Linear(10, 64)  # 8 (coords) + 2 (binary)
-        self.fc4_binary = nn.Linear(64, 4)
-        self.fc4_indices = nn.Linear(64, 16)  # Producing (4,4) tensor 
-        self.fc4_coords = nn.Linear(64, 8)  # Producing (4,2) coordinates
+        self.fc3 = nn.Linear(10, 128)  # 8 (coords) + 2 (binary)
+        self.fc4_binary = nn.Linear(128, 4)
+        self.fc4_indices = nn.Linear(128, 16)  # Producing (4,4) tensor 
+        self.fc4_coords = nn.Linear(128, 8)  # Producing (4,2) coordinates
 
         # Third stage layers
-        self.fc5 = nn.Linear(24, 128)  # 8 (binary) + 16 (coords)
+        self.fc5 = nn.Linear(24, 256)  # 8 (binary) + 16 (coords)
         # self.fc6_binary = nn.Linear(128, 2)
-        self.fc6_indices = nn.Linear(128, 8)
-        self.fc6_coords = nn.Linear(128, 2) 
+        self.fc6_indices = nn.Linear(256, 8)
+        self.fc6_coords = nn.Linear(256, 2) 
 
     def custom_sign(self,input, threshold=0.1):
         # Values within [-threshold, threshold] are mapped to 0
@@ -87,16 +90,28 @@ class CombinedNetwork(nn.Module):
         self.check_for_nan(out3_coords, "out3_coords")
 
         return final_binary_input[0], out2_adjacency[0], output_coords[0], out3_adjacency[0], out3_coords[0]
-    
+
+def seed_everything(seed=42):
+    random.seed(seed)  # Seed Python's random module
+    np.random.seed(seed)  # Seed Numpy (make sure to import numpy as np)
+    torch.manual_seed(seed)  # Seed torch for CPU operations
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)  # Seed torch for CUDA operations
+        torch.cuda.manual_seed_all(seed)  # Seed all GPUs if there are multiple
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
 if __name__ == '__main__':
     # Test
+
+    seed_everything(42)
     net = CombinedNetwork()
     sample_input = torch.rand((1, 6, 2))
-    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_directions = net(sample_input)
+    coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = net(sample_input)
 
     print(coor_val)
     print(stage2_adjacency)
     print(all_coords)
     print(target_adjacency)
     print(target_coords)
-    print(rotation_directions)
+

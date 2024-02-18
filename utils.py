@@ -1,6 +1,8 @@
 from matplotlib import pyplot as plt
 import math
 import numpy as np
+import torch
+import random
 
 def output_process(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, rotation_direction):
     coor_val = coor_val.detach().numpy()
@@ -50,3 +52,12 @@ def calculate_angle(point1, point2):
     dy = point2[1] - point1[1]
     return math.atan2(dy, dx)
 
+def seed_everything(seed=42):
+    random.seed(seed)  # Seed Python's random module
+    np.random.seed(seed)  # Seed Numpy (make sure to import numpy as np)
+    torch.manual_seed(seed)  # Seed torch for CPU operations
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)  # Seed torch for CUDA operations
+        torch.cuda.manual_seed_all(seed)  # Seed all GPUs if there are multiple
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False

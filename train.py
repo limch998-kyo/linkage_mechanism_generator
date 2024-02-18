@@ -4,14 +4,14 @@ import torch
 from utils import output_process
 from src.linkage_builder import Linkage_mechanism
 from src.loss import get_loss
-
+from linkage_network import CombinedNetwork
 
 from torch.optim.lr_scheduler import ExponentialLR
 
 
 class Lingkage_mec_train():
-    def __init__(self, net, crank_location, status_location, target_location, epochs=10000, lr=0.01, gamma=1.00, visualize_mec=False):
-        self.net = net
+    def __init__(self, crank_location, status_location, target_location, epochs=10000, lr=0.01, gamma=1.00,trajectory_type = 'linear', trajectory_data = [(-3, 0), (3, 0)], device = 'cpu',visualize_mec=False):
+        self.net = CombinedNetwork()
         self.epochs = epochs
         self.lr = lr
         self.gamma = gamma
@@ -28,13 +28,19 @@ class Lingkage_mec_train():
         input = []
         input.append(crank_location)
         input.append(status_location)
+
         for i in range(len(target_location)):
             input.append(target_location[i])
         self.input_tensor = torch.tensor([input], dtype=torch.float)
 
+        self.trajectory_type = trajectory_type
+        self.trajectory_data = trajectory_data
+
+        self.device = device
+
         self.visualize_mec = visualize_mec
 
-        self.optimizer = torch.optim.Adam(net.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         self.scheduler = ExponentialLR(self.optimizer, gamma=1.00)
 
     def nan_to_num_hook(self, grad):
@@ -49,7 +55,6 @@ class Lingkage_mec_train():
         for param in self.net.parameters():
             param.register_hook(self.nan_to_num_hook)
         for epoch in range(self.epochs):
-
             coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = self.net(self.input_tensor)
             all_coords = all_coords*5.0
             target_coords = target_coords*5.0
@@ -71,6 +76,9 @@ class Lingkage_mec_train():
                         self.status_location_tensor[0],
                         self.target_location_tensor,
                         epoch,
+                        device=self.device,
+                        trajectory_type=self.trajectory_type,
+                        trajectory_data=self.trajectory_data,
                         visualize=visualize)
 
             self.optimizer.zero_grad()

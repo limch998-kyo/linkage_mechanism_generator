@@ -21,8 +21,10 @@ class Lingkage_mec_train():
         self.target_location = target_location
 
         # Convert each list into individual tensors
-
-        self.target_location_tensor = torch.tensor([trajectory_data[0],trajectory_data[1]], dtype=torch.float)
+        if trajectory_type == 'linear':
+            self.target_location_tensor = torch.tensor([trajectory_data[0],trajectory_data[1]], dtype=torch.float)
+        else:
+            self.target_location_tensor = torch.tensor(target_location, dtype=torch.float)
             # self.target_location_tensor = torch.tensor(target_location, dtype=torch.float)
         self.crank_location_tensor = torch.tensor([crank_location], dtype=torch.float)
         self.status_location_tensor = torch.tensor([status_location], dtype=torch.float)

@@ -179,6 +179,9 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             else:
                 continue
         
+        if len(temp_loss_list) == 0:
+            print('error occured')
+            return
         min_loss = min(temp_loss_list)
         min_index = temp_loss_list.index(min_loss)
         

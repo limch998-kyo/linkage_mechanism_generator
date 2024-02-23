@@ -111,10 +111,16 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
 
     target_trace = []  # Store the trace of the target_coords
+    marker_trace = []  # Initialize a list to store the marker positions
+
     flag = False
-
-    direction_list = [1, 0,-1]
-
+    
+    if trajectory_type == 'circular':
+        direction_list = [-1, 0]
+    elif trajectory_type == 'sine':
+        direction_list = [0, 1]
+    else:
+        direction_list = [-1, 0, 1]
 
     # Calculate the center of the first two coordinates (start point)
     center_start = target_location[0]
@@ -124,6 +130,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
     # Calculate the total number of frames for one direction of the reciprocation
     half_frame_num = frame_num // 2
+
+
 
     for frame in range(frame_num):
 
@@ -153,6 +161,9 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
             marker_position = calculate_sine_trajectory(start_point, amplitude, wavelength, length, frame, frame_num)
         else:
             raise ValueError("Unknown trajectory type")
+
+        # After updating the marker_position
+        marker_trace.append(tuple(marker_position.clone().detach().cpu().numpy()))
 
         temp_loss_list = []
         temp_direction_list = []
@@ -248,7 +259,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
                 temp_direction_list[min_index],
                 Make_GIF=True, 
                 frame_num=frame,
-                marker_position=marker_position.cpu().numpy()  # Also convert marker_position to CPU if it's on CUDA
+                marker_position=marker_position.cpu().numpy(),  # Also convert marker_position to CPU if it's on CUDA
+                marker_trace=marker_trace
             )
 
 

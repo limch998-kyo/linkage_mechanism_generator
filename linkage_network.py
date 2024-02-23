@@ -97,10 +97,10 @@ class CombinedNetwork(nn.Module):
         self.fc2_coords = nn.Linear(64, 8)
 
         # Second stage layers
-        self.fc3 = nn.Linear(10, 128)  # 8 (coords) + 2 (binary)
-        self.fc4_binary = nn.Linear(128, 4)
-        self.fc4_indices = nn.Linear(128, 16)  # Producing (4,4) tensor 
-        self.fc4_coords = nn.Linear(128, 8)  # Producing (4,2) coordinates
+        self.fc3 = nn.Linear(10, 256)  # 8 (coords) + 2 (binary)
+        self.fc4_binary = nn.Linear(256, 4)
+        self.fc4_indices = nn.Linear(256, 16)  # Producing (4,4) tensor 
+        self.fc4_coords = nn.Linear(256, 8)  # Producing (4,2) coordinates
 
         # Third stage layers
         self.fc5 = nn.Linear(24, 256)  # 8 (binary) + 16 (coords)

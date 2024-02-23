@@ -10,10 +10,11 @@ from torch.optim.lr_scheduler import ExponentialLR
 
 
 class Lingkage_mec_train():
-    def __init__(self, crank_location, status_location, target_location, epochs=10000, lr=0.01, gamma=1.00,trajectory_type = 'linear', trajectory_data = [(-3, 0), (3, 0)], device = 'cpu',visualize_mec=False):
+    def __init__(self, crank_location, status_location, target_location, epochs=10000, lr=0.01, lr_min=0.0001, gamma=1.00,trajectory_type = 'linear', trajectory_data = [(-3, 0), (3, 0)], device = 'cpu',visualize_mec=False):
         self.net = CombinedNetwork()
         self.epochs = epochs
         self.lr = lr
+        self.lr_min = lr_min
         self.gamma = gamma
 
         self.crank_location = crank_location
@@ -55,9 +56,11 @@ class Lingkage_mec_train():
 
     def train(self):
         visualize = False
+        is_lr_min = False  # Flag to check if current lr is lr_min
                 # Register the gradient hook
         for param in self.net.parameters():
             param.register_hook(self.nan_to_num_hook)
+
         for epoch in range(self.epochs):
             coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords = self.net(self.input_tensor)
             all_coords = all_coords*5.0
@@ -84,6 +87,18 @@ class Lingkage_mec_train():
                         trajectory_type=self.trajectory_type,
                         trajectory_data=self.trajectory_data,
                         visualize=visualize)
+
+            # Adjust learning rate based on loss value
+            if not is_lr_min and loss.item() < 70:
+                print(f"Reducing LR to {self.lr_min} as loss is below 70.")
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] = self.lr_min
+                is_lr_min = True
+            elif is_lr_min and loss.item() > 70:
+                print(f"Increasing LR to {self.lr} as loss is above 70.")
+                for param_group in self.optimizer.param_groups:
+                    param_group['lr'] = self.lr
+                is_lr_min = False
 
             self.optimizer.zero_grad()
             loss.backward()

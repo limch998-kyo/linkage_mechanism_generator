@@ -21,10 +21,10 @@ crank_location = [-2,0]
 status_location = [2,0]
 
 # Define trajectory type and data
-trajectory_type = 'sine'  # Options: 'linear', 'circular', 'elliptical', 'sine'
+trajectory_type = 'circular'  # Options: 'linear', 'circular', 'elliptical', 'sine'
 # Example trajectory data for circular: (center, radius)
 # Adjust this based on the selected trajectory_type
-trajectory_data = {'circular': [(0, 5), 3],
+trajectory_data = {'circular': [(0, 6), 3],
                     'elliptical': [(0, 0), (3, 2)],
                     'sine': [(-5, 5), 2, 50, 10],  # start_point, amplitude, wavelength, length
                     'linear': [(-5, 5), (5, 5)]}  # start and end points
@@ -36,7 +36,8 @@ selected_trajectory_data = trajectory_data[trajectory_type]
 # net = net.to(device)
 
 epochs = 10000
-lr = 0.001
+lr = 0.005
+lr_min = 0.0002
 gamma = 1.000
 
 seed_everything(2024)
@@ -47,6 +48,7 @@ mechanism_train = Lingkage_mec_train(
                    target_location, 
                    epochs=epochs, 
                    lr=lr, 
+                   lr_min=lr_min,
                    gamma=gamma, 
                    trajectory_type=trajectory_type,
                     trajectory_data=selected_trajectory_data,

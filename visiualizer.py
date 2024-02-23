@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_trace=[], rotation_direction=[] ,Make_GIF=False, frame_num=0, marker_position=None, fail_num=3):
+def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adjacency, target_coords, crank_location, status_location, target_trace=[], rotation_direction=[] ,Make_GIF=False, frame_num=0, marker_position=None, marker_trace = [],fail_num=3):
 
     # Create a new figure and axis
     fig, ax = plt.subplots()
@@ -61,6 +61,10 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
 
     # if marker_position:
     ax.scatter(marker_position[0], marker_position[1], c='purple', marker='o', s=50)  # Change color, marker, and size as per your needs
+
+    # Draw the trace of the marker positions
+    for (x, y) in marker_trace:
+        ax.scatter(x, y, c='cyan', marker='x', s=10)  # Use a different color/marker for distinction
 
     # Draw the given target locations rectangle
 

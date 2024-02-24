@@ -16,14 +16,14 @@ def seed_everything(seed=42):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
-target_location = [[-5,5.5],[-5,4.5],[5,5.5],[5,4.5]]
 crank_location = [-2,0]
 status_location = [2,0]
 
 # Define trajectory type and data
-trajectory_type = 'circular'  # Options: 'linear', 'circular', 'elliptical', 'sine'
+trajectory_type = 'sine'  # Options: 'linear', 'circular', 'elliptical', 'sine'
 # Example trajectory data for circular: (center, radius)
 # Adjust this based on the selected trajectory_type
+
 trajectory_data = {'circular': [(0, 6), 3],
                     'elliptical': [(0, 0), (3, 2)],
                     'sine': [(-5, 5), 2, 50, 10],  # start_point, amplitude, wavelength, length
@@ -45,7 +45,6 @@ seed_everything(2024)
 mechanism_train = Lingkage_mec_train(
                    crank_location, 
                    status_location, 
-                   target_location, 
                    epochs=epochs, 
                    lr=lr, 
                    lr_min=lr_min,

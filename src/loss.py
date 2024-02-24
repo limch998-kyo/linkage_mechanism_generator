@@ -122,11 +122,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
     else:
         direction_list = [-1, 0, 1]
 
-    # Calculate the center of the first two coordinates (start point)
-    center_start = target_location[0]
 
-    # Calculate the center of the last two coordinates (end point)
-    center_end = target_location[1]
 
     # Calculate the total number of frames for one direction of the reciprocation
     half_frame_num = frame_num // 2
@@ -148,6 +144,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
         angle = 2 * math.pi * (frame / frame_num)
         if trajectory_type == 'linear':
+
+            center_start, center_end = torch.tensor([trajectory_data[0],trajectory_data[1]], dtype=torch.float)   
             # Interpolate the marker's position between the start and end centers
             marker_position = center_start * (1 - progress) + center_end * progress
         elif trajectory_type == 'circular':

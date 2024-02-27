@@ -62,6 +62,8 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
     # Determine the lower left corner, width, and height of target location
 
     angles_delta = torch.tensor(2 * torch.pi / frame_num)
+    if trajectory_type == 'linear' or trajectory_type == 'linear2':
+        angles_delta = angles_delta / 2
 
     # Defining Link lengths
     # First stage
@@ -152,6 +154,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
         
         if len(temp_loss_list) == 0:
             print('error occured')
+            print(frame)
             return
         if trajectory_type != 'linear' and trajectory_type != 'linear2':
             if len(temp_loss_list) >1:
@@ -233,54 +236,17 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
         loss = loss + loss1
 
 
-    # Proximity penalty initialization
-    proximity_threshold = 0.05  # Set the threshold distance
-    proximity_penalty = 0.0
-    # Distance from origin penalty initialization
-    origin = torch.tensor([0.0, 0.0], device=device)  # Define the origin point
-    distance_from_origin_penalty = 0.0
-    max_distance_threshold = 20.0  # Define maximum allowed distance from origin
+    # Vectorize loss for lengths below 1
+    lengths_below_1 = torch.clamp(1.0 - all_lengths, min=0)  # This finds the difference for lengths below 1, and clamps values above 1 to 0.
+    additional_loss_for_short_lengths = lengths_below_1.sum() * 10.0  # Assuming you want to scale the penalty in a similar manner
+    loss += additional_loss_for_short_lengths
 
-    # Calculate the proximity penalty for all unique pairs of coordinates using a linear penalty
-    num_coords = all_coords.shape[0]
-    for i in range(num_coords):
-        for j in range(i + 1, num_coords):
-            distance = euclidean_distance(all_coords[i], all_coords[j])
-            if distance < proximity_threshold:
-                # Apply linear penalty if distance is less than threshold
-                proximity_penalty += proximity_threshold - distance
+    # Vectorize condition for overall average > 8.0
+    additional_loss_for_avg_over_8 = torch.clamp(overall_avg - 8.0, min=0) * 10.0
+    loss += additional_loss_for_avg_over_8
 
-    # Also include the crank and stationary locations in the proximity checks with a linear penalty
-    for i in range(num_coords):
-        distance_to_crank = euclidean_distance(all_coords[i], crank_location)
-        distance_to_stationary = euclidean_distance(all_coords[i], status_location)
-        if distance_to_crank < proximity_threshold:
-            proximity_penalty += proximity_threshold - distance_to_crank
-        if distance_to_stationary < proximity_threshold:
-            proximity_penalty += proximity_threshold - distance_to_stationary
 
-        # Incorporate the proximity penalty into the total loss
-        loss += proximity_penalty
 
-    # Calculate the distance from origin penalty for all coordinates
-    for i in range(all_coords.shape[0]):
-        distance = euclidean_distance(all_coords[i], origin)
-        if distance > max_distance_threshold:
-            # Apply penalty if distance is greater than threshold
-            distance_from_origin_penalty += (distance - max_distance_threshold)**2
-
-    # Apply the same for the crank and stationary locations if needed
-    if euclidean_distance(crank_location, origin) > max_distance_threshold:
-        distance_from_origin_penalty += (euclidean_distance(crank_location, origin) - max_distance_threshold)**2
-
-    if euclidean_distance(status_location, origin) > max_distance_threshold:
-        distance_from_origin_penalty += (euclidean_distance(status_location, origin) - max_distance_threshold)**2
-
-    # Incorporate the distance from origin penalty into the total loss
-    loss += distance_from_origin_penalty
-
-    if overall_avg.item() > 5:
-        loss = loss + (overall_avg-5.0)*10.0
     if visualize:
         frames = []
         current_directory = os.getcwd()
@@ -288,7 +254,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
         for frame in range(frame_num):
             frames.append(imageio.imread(f"{current_directory}/GIF_frames/frame_{frame}.png"))
 
-        imageio.mimsave(f'{current_directory}/learn_process/mechanism_{epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
+        imageio.mimsave(f'{current_directory}/learn_process/mechanism_{trajectory_type}_{epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
         # print("mechanism gif saved")
 
 

@@ -10,15 +10,14 @@ from torch.optim.lr_scheduler import ExponentialLR
 from src.geometry_tensor import calculate_circular_position, calculate_sine_trajectory
 import math
 class Lingkage_mec_train():
-    def __init__(self, crank_location, status_location, epochs=10000, lr=0.01, lr_min=0.0001, gamma=1.00,frame_num=60,trajectory_type = 'linear', trajectory_data = [(-3, 0), (3, 0)], device = 'cpu',visualize_mec=False):
+    def __init__(self, crank_location, status_location, epochs=10000, lr=0.01, lr_min=0.0001, loss_threshold = 10,gamma=1.00,frame_num=60,trajectory_type = 'linear', trajectory_data = [(-3, 0), (3, 0)], device = 'cpu',visualize_mec=False):
         self.net = CombinedNetwork(input_size=frame_num+2)
         self.epochs = epochs
         self.lr = lr
         self.lr_min = lr_min
-        self.loss_threshold = 50
-        if trajectory_type == 'linear' or trajectory_type == 'linear2':
-            self.loss_threshold = 10
+        self.loss_threshold = loss_threshold
         self.gamma = gamma
+        self.frame_num = frame_num
 
         self.crank_location = crank_location
         self.status_location = status_location

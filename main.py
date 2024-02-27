@@ -22,7 +22,7 @@ crank_location = [-2,0]
 status_location = [2,0]
 
 # Define trajectory type and data
-trajectory_type = 'linear'  # Options: 'linear', 'circular', 'elliptical', 'sine'
+trajectory_type = 'circular'  # Options: 'linear', 'circular', 'elliptical', 'sine'
 # Example trajectory data for circular: (center, radius)
 # Adjust this based on the selected trajectory_type
 

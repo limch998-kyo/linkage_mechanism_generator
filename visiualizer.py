@@ -17,7 +17,7 @@ def visualize_linkage_system(coor_val, stage2_adjacency, all_coords, target_adja
 
     # Define colors for each stage
     colors = ['r', 'g', 'b']
-    rotation_colors = {1: 'green', -1: 'red', 0: 'yellow'}
+    rotation_colors = {1: 'green', -1: 'red', 0: 'yellow',0.1: 'green', -0.1: 'red'}
 
     # Set the crank color based on the rotation direction
     crank_color = rotation_colors[rotation_direction]

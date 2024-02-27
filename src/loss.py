@@ -5,7 +5,7 @@ import os
 import imageio
 import math
 
-from src.geometry_tensor import closest_intersection_point, rotate_around_center, euclidean_distance, calculate_circular_position, calculate_elliptical_position, calculate_sine_trajectory
+from src.geometry_tensor import closest_intersection_point, rotate_around_center, euclidean_distance
 from visiualizer import visualize_linkage_system
 
 
@@ -56,7 +56,7 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
 
     return True, loss1
 
-def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjacency,crank_location,status_location,target_location, epoch, device,frame_num=60, visualize=False, trajectory_type='linear', trajectory_data=None):
+def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjacency, crank_location, status_location, target_location, epoch, device, frame_num=60, visualize=False, trajectory_type='linear', trajectory_data=None, marker_trace=None):
 
 
     # Determine the lower left corner, width, and height of target location
@@ -111,57 +111,19 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
 
     target_trace = []  # Store the trace of the target_coords
-    marker_trace = []  # Initialize a list to store the marker positions
 
     flag = False
     
-    if trajectory_type == 'circular':
-        direction_list = [-1, 0]
+    if trajectory_type == 'circular' or trajectory_type == 'circular2':
+        direction_list = [0, -0.1, -1]
     elif trajectory_type == 'sine':
-        direction_list = [0, 1]
-    else:
-        direction_list = [-1, 0, 1]
-
-
-
-    # Calculate the total number of frames for one direction of the reciprocation
-    half_frame_num = frame_num // 2
-
-
+        direction_list = [0, 0.1, 1]
+    elif trajectory_type == 'linear' or trajectory_type == 'linear2':
+        direction_list = [-1, -0.1, 0,0.1, 1]
 
     for frame in range(frame_num):
-
-        # Determine the progress in the current half of the reciprocation cycle
-        half_cycle_frame = frame % half_frame_num
-        progress = half_cycle_frame / half_frame_num
-
-        # Reverse the progress if we are in the second half of the reciprocation cycle
-        if frame >= half_frame_num:
-            progress = 1 - progress
-
-        # rotation = angles_delta
-        # Assuming all variables are tensors.
-
-        angle = 2 * math.pi * (frame / frame_num)
-        if trajectory_type == 'linear':
-
-            center_start, center_end = torch.tensor([trajectory_data[0],trajectory_data[1]], dtype=torch.float)   
-            # Interpolate the marker's position between the start and end centers
-            marker_position = center_start * (1 - progress) + center_end * progress
-        elif trajectory_type == 'circular':
-            center, radius = trajectory_data
-            marker_position = calculate_circular_position(center, radius, angle)
-        elif trajectory_type == 'elliptical':
-            center, radii = trajectory_data
-            marker_position = calculate_elliptical_position(center, radii, angle)
-        elif trajectory_type == 'sine':
-            start_point, amplitude, wavelength, length = trajectory_data
-            marker_position = calculate_sine_trajectory(start_point, amplitude, wavelength, length, frame, frame_num)
-        else:
-            raise ValueError("Unknown trajectory type")
-
-        # After updating the marker_position
-        marker_trace.append(tuple(marker_position.clone().detach().cpu().numpy()))
+        # Use the provided marker_trace for the current frame
+        marker_position = marker_trace[frame]
 
         temp_loss_list = []
         temp_direction_list = []
@@ -191,6 +153,10 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         if len(temp_loss_list) == 0:
             print('error occured')
             return
+        if trajectory_type != 'linear' and trajectory_type != 'linear2':
+            if len(temp_loss_list) >1:
+                temp_direction_list = temp_direction_list[1:]
+                temp_loss_list = temp_loss_list[1:]
         min_loss = min(temp_loss_list)
         min_index = temp_loss_list.index(min_loss)
         
@@ -267,6 +233,52 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
         loss = loss + loss1
 
 
+    # Proximity penalty initialization
+    proximity_threshold = 0.05  # Set the threshold distance
+    proximity_penalty = 0.0
+    # Distance from origin penalty initialization
+    origin = torch.tensor([0.0, 0.0], device=device)  # Define the origin point
+    distance_from_origin_penalty = 0.0
+    max_distance_threshold = 20.0  # Define maximum allowed distance from origin
+
+    # Calculate the proximity penalty for all unique pairs of coordinates using a linear penalty
+    num_coords = all_coords.shape[0]
+    for i in range(num_coords):
+        for j in range(i + 1, num_coords):
+            distance = euclidean_distance(all_coords[i], all_coords[j])
+            if distance < proximity_threshold:
+                # Apply linear penalty if distance is less than threshold
+                proximity_penalty += proximity_threshold - distance
+
+    # Also include the crank and stationary locations in the proximity checks with a linear penalty
+    for i in range(num_coords):
+        distance_to_crank = euclidean_distance(all_coords[i], crank_location)
+        distance_to_stationary = euclidean_distance(all_coords[i], status_location)
+        if distance_to_crank < proximity_threshold:
+            proximity_penalty += proximity_threshold - distance_to_crank
+        if distance_to_stationary < proximity_threshold:
+            proximity_penalty += proximity_threshold - distance_to_stationary
+
+        # Incorporate the proximity penalty into the total loss
+        loss += proximity_penalty
+
+    # Calculate the distance from origin penalty for all coordinates
+    for i in range(all_coords.shape[0]):
+        distance = euclidean_distance(all_coords[i], origin)
+        if distance > max_distance_threshold:
+            # Apply penalty if distance is greater than threshold
+            distance_from_origin_penalty += (distance - max_distance_threshold)**2
+
+    # Apply the same for the crank and stationary locations if needed
+    if euclidean_distance(crank_location, origin) > max_distance_threshold:
+        distance_from_origin_penalty += (euclidean_distance(crank_location, origin) - max_distance_threshold)**2
+
+    if euclidean_distance(status_location, origin) > max_distance_threshold:
+        distance_from_origin_penalty += (euclidean_distance(status_location, origin) - max_distance_threshold)**2
+
+    # Incorporate the distance from origin penalty into the total loss
+    loss += distance_from_origin_penalty
+
     if overall_avg.item() > 5:
         loss = loss + (overall_avg-5.0)*10.0
     if visualize:
@@ -278,5 +290,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency,target_adjace
 
         imageio.mimsave(f'{current_directory}/learn_process/mechanism_{epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
         # print("mechanism gif saved")
+
+
 
     return loss

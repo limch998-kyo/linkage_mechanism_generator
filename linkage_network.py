@@ -1,21 +1,24 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 class CombinedNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size=62):
         super(CombinedNetwork, self).__init__()
 
         # First stage layers
-        self.fc1 = nn.Linear(4, 64)  # Reduced number of neurons
-        self.fc2_coords = nn.Linear(64, 8)
+        self.fc1 = nn.Linear(input_size, 64)  # Input to first hidden layer
+        self.fc1_1 = nn.Linear(64, 64)  # Additional hidden layer
+        self.fc2_coords = nn.Linear(64, 8)  # Output of first stage
 
         # Second stage layers
-        self.fc3 = nn.Linear(8, 128)  # Reduced number of neurons
-        self.fc4_coords = nn.Linear(128, 8)
+        self.fc3 = nn.Linear(8, 128)  # Input to second hidden layer
+        self.fc3_1 = nn.Linear(128, 128)  # Additional hidden layer
+        self.fc4_coords = nn.Linear(128, 8)  # Output of second stage
 
         # Third stage layers
-        self.fc5 = nn.Linear(16, 128)  # Reduced number of neurons
-        self.fc6_coords = nn.Linear(128, 2)
+        self.fc5 = nn.Linear(16, 64)  # Input to third stage
+        self.fc6_coords = nn.Linear(64, 2)  # Output of third stage
 
     def custom_sign(self, input, threshold=0.1):
         # Values within [-threshold, threshold] are mapped to 0
@@ -27,14 +30,15 @@ class CombinedNetwork(nn.Module):
         
         # First stage
         x1 = x.view(x.size(0), -1)
-    
         x1 = F.relu(self.fc1(x1))
+        x1 = F.relu(self.fc1_1(x1))  # Passing through the additional hidden layer
 
         x2 = self.fc2_coords(x1)
         out1_coords = torch.reshape(x2, (-1, 4, 2))
 
         # Second stage
         x3 = F.relu(self.fc3(x2))
+        x3 = F.relu(self.fc3_1(x3))  # Passing through the additional hidden layer
         
         x3 = self.fc4_coords(x3)
         out2_coords = torch.reshape(x3, (-1, 4, 2))
@@ -50,6 +54,7 @@ class CombinedNetwork(nn.Module):
         out3_coords = self.fc6_coords(x3)
 
         return output_coords[0], out3_coords[0]
+
     
 if __name__ == '__main__':
     # Test

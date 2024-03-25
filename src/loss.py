@@ -56,8 +56,80 @@ def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency
 
     return True, loss1
 
-def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjacency, crank_location, status_location, target_location, epoch, device, frame_num=60, visualize=False, trajectory_type='linear', trajectory_data=None, marker_trace=None):
+import time
+import torch
+import torch.nn as nn
 
+# def check_linkage_valid(coor_val, all_coords, stage2_adjacency, target_adjacency, rotation, crank_location, crank_to_revolutions, status_location, link_fixeds, links_length, target_coords, marker_position, device):
+#     start_time = time.time()
+
+#     if torch.all(coor_val[:4] == 0):
+#         return False, None
+#     elif torch.all(coor_val[-4:] == 0):
+#         return False, None
+
+#     check_time = time.time()
+#     print("Initial checks: {:.6f} seconds".format(check_time - start_time))
+
+#     # This loop might be a bottleneck, especially if coor_val has many elements
+#     for i in range(4, 8):
+#         joint_a, joint_b = stage2_adjacency[i-4]
+#         if coor_val[i] == 0:
+#             continue
+#         elif coor_val[joint_a] == 0 or coor_val[joint_b] == 0:
+#             return False, None
+
+#     loop1_time = time.time()
+#     print("Loop 1: {:.6f} seconds".format(loop1_time - check_time))
+
+#     # Checking and potentially modifying the coordinates based on conditions
+#     # First stage
+#     for i in range(0, 4, 2):
+#         if coor_val[i] == 1:
+#             # Consider the efficiency of rotate_around_center and closest_intersection_point
+#             crank_end = rotate_around_center(all_coords[i], rotation, crank_location)
+#             all_coords[i] = crank_end
+#             third_joint = closest_intersection_point(all_coords[i+1], all_coords[i], crank_to_revolutions[i//2], status_location, link_fixeds[i//2])
+#             if third_joint is None:
+#                 return False, None
+#             all_coords[i+1] = third_joint
+
+#     stage1_time = time.time()
+#     print("First stage: {:.6f} seconds".format(stage1_time - loop1_time))
+
+#     # Second stage
+#     for i in range(4, 8):
+#         if coor_val[i] == 1:
+#             joint_a, joint_b = stage2_adjacency[i-4]
+#             moved_coord = closest_intersection_point(all_coords[i], all_coords[joint_a], links_length[i-4][0], all_coords[joint_b], links_length[i-4][1])
+#             if moved_coord is None:
+#                 return False, None
+#             all_coords[i] = moved_coord
+
+#     stage2_time = time.time()
+#     print("Second stage: {:.6f} seconds".format(stage2_time - stage1_time))
+
+#     # Third stage and loss calculation
+#     joint_a, joint_b = target_adjacency
+#     moved_coord = closest_intersection_point(target_coords, all_coords[joint_a], links_length[-1][0], all_coords[joint_b], links_length[-1][1])
+#     if moved_coord is None:
+#         return False, None
+#     target_coords = moved_coord
+
+#     criterion = nn.MSELoss()
+#     loss1 = criterion(target_coords, marker_position)
+
+#     end_time = time.time()
+#     print("Third stage and loss calculation: {:.6f} seconds".format(end_time - stage2_time))
+#     print("Total execution time: {:.6f} seconds".format(end_time - start_time))
+
+#     return True, loss1
+
+def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjacency, crank_location, status_location, target_location, epoch, device, frame_num=60, visualize=False, trajectory_type='linear', trajectory_data=None, marker_trace=None):
+    overall_start = time.time()
+    
+    # Setup
+    setup_start = time.time()
 
     # Determine the lower left corner, width, and height of target location
 
@@ -109,6 +181,9 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
     # Compute the average
     overall_avg = torch.mean(all_lengths)
 
+    setup_end = time.time()
+    print(f"Setup: {setup_end - setup_start:.6f} seconds")
+
     loss = torch.tensor(0.0)
 
 
@@ -122,7 +197,7 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
         direction_list = [0, 0.1, 1]
     elif trajectory_type == 'linear' or trajectory_type == 'linear2':
         direction_list = [-1, -0.1, 0,0.1, 1]
-
+    loop_start = time.time()
     for frame in range(frame_num):
         # Use the provided marker_trace for the current frame
         marker_position = marker_trace[frame]
@@ -234,8 +309,14 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
         criterion = nn.MSELoss()
         loss1 = criterion(target_coords, marker_position)
         loss = loss + loss1
+        frame_end = time.time()
+        print(f"Frame {frame}: {frame_end - loop_start:.6f} seconds")
+        loop_start = frame_end
+    loop_end = time.time()
+    print(f"Total loop: {loop_end - setup_end:.6f} seconds")
 
-
+        # Final computations
+    final_start = time.time()
     # Vectorize loss for lengths below 1
     lengths_below_1 = torch.clamp(1.0 - all_lengths, min=0)  # This finds the difference for lengths below 1, and clamps values above 1 to 0.
     additional_loss_for_short_lengths = lengths_below_1.sum() * 10.0  # Assuming you want to scale the penalty in a similar manner
@@ -269,7 +350,11 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
 
         imageio.mimsave(f'{current_directory}/learn_process/mechanism_{trajectory_type}_{epoch}.gif', frames, duration=0.1)  # Adjust duration as needed
         # print("mechanism gif saved")
+    final_end = time.time()
+    print(f"Final calculations: {final_end - final_start:.6f} seconds")
 
+    overall_end = time.time()
+    print(f"Total execution time: {overall_end - overall_start:.6f} seconds")
 
 
     return loss

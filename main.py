@@ -7,7 +7,7 @@ import torch
 import random
 import numpy as np
 
-
+torch.device("mps")
 def seed_everything(seed=42):
     random.seed(seed)  # Seed Python's random module
     np.random.seed(seed)  # Seed Numpy (make sure to import numpy as np)

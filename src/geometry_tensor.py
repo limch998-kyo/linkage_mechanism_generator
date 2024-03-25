@@ -27,7 +27,7 @@ def circle_intercept(P1, r1, P2, r2):
     x1, y1 = P1
     x2, y2 = P2
     
-    epsilon = 1e-8  # small constant to prevent division by zero
+    epsilon = 1e-6  # small constant to prevent division by zero
     
     # Distance between the centers
     d = euclidean_distance(P1, P2)

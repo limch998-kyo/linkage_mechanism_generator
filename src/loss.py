@@ -245,7 +245,20 @@ def get_loss(coor_val, all_coords, target_coords, stage2_adjacency, target_adjac
     additional_loss_for_avg_over_8 = torch.clamp(overall_avg - 8.0, min=0) * 10.0
     loss += additional_loss_for_avg_over_8
 
+    # Additional Loss for Circular Trajectories Being Too Close to Center
+    if trajectory_type in ['circular', 'circular2']:
+        center, radius = trajectory_data
+        center_tensor = torch.tensor(center, dtype=torch.float32, device=device)
+        distance_to_center = torch.norm(target_coords - center_tensor)
 
+        # Define the threshold for being 'too close' to the center, for example:
+        too_close_threshold = radius * 0.1  # Example threshold: 10% of the radius
+
+        # If the target is closer to the center than this threshold, add a loss
+        if distance_to_center < too_close_threshold:
+            # The additional loss could be proportional to how much closer it is than allowed
+            additional_center_loss = (too_close_threshold - distance_to_center) * 10.0  # Scale as appropriate
+            loss += additional_center_loss
 
     if visualize:
         frames = []

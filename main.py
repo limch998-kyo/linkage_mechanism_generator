@@ -22,17 +22,9 @@ crank_location = [-2,0]
 status_location = [2,0]
 
 # Define trajectory type and data
-trajectory_type = 'linear3'  # Options: 'linear', 'circular', 'elliptical', 'sine'
+trajectory_types = ['circular', 'circular2','sine','linear', 'linear2' ]  # Options: 'linear', 'circular', 'elliptical', 'sine'
 # Example trajectory data for circular: (center, radius)
 # Adjust this based on the selected trajectory_type
-
-if trajectory_type == 'linear2':
-    crank_location = [-6,-5]
-    status_location = [-2,-5]
-
-if trajectory_type == 'linear3':
-    crank_location = [-6,0]
-    status_location = [-2,0]    
 
 trajectory_data = {'circular': [(0, 0), 4],
                    'circular2': [(0, 6), 3],
@@ -40,34 +32,36 @@ trajectory_data = {'circular': [(0, 0), 4],
                     'linear': [(-5, 5), (5, 5)],
                     'linear2': [(-2.5,5),(7.5,5)]}  # start and end points
 
-selected_trajectory_data = trajectory_data[trajectory_type]
+for trajectory_type in trajectory_types:
 
-# net = CombinedNetwork()
-# device = torch.device("cpu")
-# net = net.to(device)
+    if trajectory_type == 'linear2':
+        crank_location = [-6,-5]
+        status_location = [-2,-5]
 
-epochs = 3001
-lr = 0.0005
-lr_min = 0.0001
+    selected_trajectory_data = trajectory_data[trajectory_type]
 
-gamma = 1.000
-frame_num = 60
-loss_threshold = 10 * frame_num / 60
+    epochs = 701
+    lr = 0.0005
+    lr_min = 0.0001
 
-seed_everything(2024)
+    gamma = 1.000
+    frame_num = 60
+    loss_threshold = 10 * frame_num / 60
 
-mechanism_train = Lingkage_mec_train(
-                   crank_location, 
-                   status_location, 
-                   epochs=epochs, 
-                   lr=lr, 
-                   lr_min=lr_min,
-                    loss_threshold = loss_threshold,
-                   gamma=gamma, 
-                   frame_num=frame_num,
-                   trajectory_type=trajectory_type,
-                    trajectory_data=selected_trajectory_data,
-                   visualize_mec=True
-                   )
+    seed_everything(2024)
 
-mechanism_train.train()
+    mechanism_train = Lingkage_mec_train(
+                    crank_location, 
+                    status_location, 
+                    epochs=epochs, 
+                    lr=lr, 
+                    lr_min=lr_min,
+                        loss_threshold = loss_threshold,
+                    gamma=gamma, 
+                    frame_num=frame_num,
+                    trajectory_type=trajectory_type,
+                        trajectory_data=selected_trajectory_data,
+                    visualize_mec=True
+                    )
+
+    mechanism_train.train()
